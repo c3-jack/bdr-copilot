@@ -42,13 +42,28 @@ function findClaudeBinary() {
 function getShellPath() {
   // Electron doesn't inherit the user's shell PATH. Reconstruct it.
   const base = process.env.PATH || '';
+  const home = process.env.HOME || '';
+  const fs = require('fs');
   const extras = [
     '/usr/local/bin',
     '/opt/homebrew/bin',
-    path.join(process.env.HOME || '', '.local/bin'),
-    path.join(process.env.HOME || '', '.npm-global/bin'),
-    path.join(process.env.HOME || '', '.claude/local'),
+    path.join(home, '.local/bin'),
+    path.join(home, '.npm-global/bin'),
+    path.join(home, '.claude/local'),
+    path.join(home, '.volta/bin'),
   ];
+
+  // NVM: add the latest installed version's bin to PATH
+  const nvmDir = path.join(home, '.nvm/versions/node');
+  if (fs.existsSync(nvmDir)) {
+    try {
+      const versions = fs.readdirSync(nvmDir).filter(v => v.startsWith('v')).sort().reverse();
+      if (versions.length > 0) extras.push(path.join(nvmDir, versions[0], 'bin'));
+    } catch {}
+  }
+  // fnm
+  const fnmCurrent = path.join(home, '.fnm/current/bin');
+  if (fs.existsSync(fnmCurrent)) extras.push(fnmCurrent);
   const parts = new Set(base.split(':').concat(extras));
   return [...parts].join(':');
 }
@@ -231,19 +246,39 @@ async function startBackendServer(port) {
 
 function findNodeBinary() {
   // Electron's process.execPath points to Electron, not Node.
-  // Try common locations.
+  // Try common locations using the reconstructed shell PATH.
   const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const envWithPath = { ...process.env, PATH: getShellPath() };
   try {
-    return execFileSync('which', ['node'], { encoding: 'utf-8' }).trim();
+    return execFileSync('/usr/bin/env', ['which', 'node'], {
+      encoding: 'utf-8',
+      env: envWithPath,
+    }).trim();
   } catch {
-    // Fallback common paths
-    const fs = require('fs');
+    // Fallback: check common paths + NVM/fnm version dirs
+    const home = process.env.HOME || '';
     const candidates = [
       '/usr/local/bin/node',
       '/opt/homebrew/bin/node',
-      path.join(process.env.HOME || '', '.nvm/versions/node', 'current', 'bin', 'node'),
-      path.join(process.env.HOME || '', '.fnm/current/bin/node'),
     ];
+
+    // NVM: find the default or latest installed version
+    const nvmDir = path.join(home, '.nvm/versions/node');
+    if (fs.existsSync(nvmDir)) {
+      try {
+        const versions = fs.readdirSync(nvmDir).filter(v => v.startsWith('v')).sort().reverse();
+        if (versions.length > 0) {
+          candidates.unshift(path.join(nvmDir, versions[0], 'bin', 'node'));
+        }
+      } catch {}
+    }
+
+    // fnm
+    candidates.push(path.join(home, '.fnm/current/bin/node'));
+    // Volta
+    candidates.push(path.join(home, '.volta/bin/node'));
+
     for (const c of candidates) {
       if (fs.existsSync(c)) return c;
     }
