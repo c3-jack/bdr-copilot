@@ -15,7 +15,7 @@ interface ClaudeResponse {
  */
 export async function askClaude(prompt: string, options?: {
   systemPrompt?: string;
-  maxTokens?: number;
+  outputFormat?: 'text' | 'json';
 }): Promise<ClaudeResponse> {
   const args = ['--print'];
 
@@ -23,8 +23,8 @@ export async function askClaude(prompt: string, options?: {
     args.push('--system-prompt', options.systemPrompt);
   }
 
-  if (options?.maxTokens) {
-    args.push('--max-tokens', String(options.maxTokens));
+  if (options?.outputFormat) {
+    args.push('--output-format', options.outputFormat);
   }
 
   args.push(prompt);
@@ -50,7 +50,7 @@ export async function askClaudeJSON<T>(prompt: string, options?: {
 }): Promise<T> {
   const response = await askClaude(
     prompt + '\n\nRespond with valid JSON only, no markdown fencing.',
-    { ...options, maxTokens: 4096 }
+    { ...options }
   );
 
   try {

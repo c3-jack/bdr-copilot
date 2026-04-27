@@ -72,6 +72,27 @@ export function getIndustries() {
   return request<{ industries: Industry[] }>('/pipeline/ref/industries');
 }
 
+// ZoomInfo contacts for a prospect
+export function getContacts(prospectId: number, params?: { title?: string; level?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.title) qs.set('title', params.title);
+  if (params?.level) qs.set('level', params.level);
+  const q = qs.toString();
+  return request<{ contacts: ZiContactWithLinks[]; totalResults: number; configured?: boolean }>(
+    `/pipeline/${prospectId}/contacts${q ? `?${q}` : ''}`
+  );
+}
+
+// ZoomInfo company enrichment
+export function enrichProspect(prospectId: number) {
+  return request<{
+    company: ZiCompany | null;
+    intent: ZiIntent[];
+    linkedIn: LinkedInLinks;
+    configured?: boolean;
+  }>(`/pipeline/${prospectId}/enrich`);
+}
+
 // Types
 export interface ScoredCompany {
   company_name: string;
@@ -130,6 +151,102 @@ export interface ResearchResult {
     risks: string[];
   };
   prospect: Record<string, unknown>;
+  zoominfo?: {
+    company: ZiCompany;
+    contacts: ZiContact[];
+    intent: ZiIntent[];
+  } | null;
+  sharepoint?: {
+    docs: EngagementDoc[];
+    pastEngagements: PastEngagement[];
+  };
+  linkedin?: {
+    companyLinks: LinkedInLinks;
+    contactLinks: Array<{
+      contact: { name: string; title: string; email: string };
+      links: LinkedInLinks;
+    }>;
+  };
+}
+
+// ZoomInfo types
+export interface ZiCompany {
+  id: number;
+  name: string;
+  website: string;
+  revenue: number;
+  revenueRange: string;
+  employeeCount: number;
+  industry: string;
+  subIndustry: string;
+  sicCode: string;
+  naicsCode: string;
+  city: string;
+  state: string;
+  country: string;
+  description: string;
+  ticker: string;
+  parentCompany: string;
+  ultimateParent: string;
+}
+
+export interface ZiContact {
+  id: number;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  directPhoneNumber: string;
+  mobilePhoneNumber: string;
+  jobTitle: string;
+  jobFunction: string;
+  managementLevel: string;
+  companyId: number;
+  companyName: string;
+  linkedinUrl: string;
+  city: string;
+  state: string;
+  country: string;
+}
+
+export interface ZiContactWithLinks extends ZiContact {
+  linkedIn: LinkedInLinks;
+}
+
+export interface ZiIntent {
+  companyId: number;
+  companyName: string;
+  topicName: string;
+  signalScore: number;
+  signalStartDate: string;
+  audienceStrength: string;
+}
+
+export interface LinkedInLinks {
+  profileSearch: string;
+  salesNavSearch: string;
+  companyPage: string;
+}
+
+export interface EngagementDoc {
+  title: string;
+  type: string;
+  url?: string;
+  summary: string;
+  relevance: string;
+  customer?: string;
+  industry?: string;
+}
+
+export interface PastEngagement {
+  customerName: string;
+  industry: string;
+  useCase: string;
+  championTitle: string;
+  outcome: string;
+  lessons: string;
+  similarity: string;
 }
 
 export interface OutreachResult {

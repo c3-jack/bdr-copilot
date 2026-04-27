@@ -11,6 +11,9 @@ import {
   getPersonas,
   logActivity,
 } from '../lib/db.js';
+import * as zoominfo from '../lib/zoominfo.js';
+import { searchEngagementDocs, findSimilarEngagements } from '../lib/sharepoint.js';
+import { generateLinkedInLinks } from '../lib/linkedin.js';
 
 export const researchRouter = Router();
 
@@ -62,8 +65,41 @@ researchRouter.post('/:prospectId', async (req, res) => {
     const companyName = prospect.company_name as string;
     const industry = prospect.industry as string;
 
-    // Research the company via Tavily
-    const research = await researchCompany(companyName);
+    // Run research sources in parallel
+    const [research, ziCompanyResult, engagementDocs, pastEngagements] = await Promise.all([
+      researchCompany(companyName),
+      zoominfo.isConfigured()
+        ? zoominfo.searchCompanies({ companyName }).catch(() => ({ data: [], totalResults: 0 }))
+        : Promise.resolve({ data: [], totalResults: 0 }),
+      searchEngagementDocs({ companyName, industry }).catch(() => []),
+      findSimilarEngagements({ targetCompany: companyName, industry }).catch(() => []),
+    ]);
+
+    // If we found the company in ZoomInfo, get contacts and intent
+    const ziCompany = ziCompanyResult.data[0] ?? null;
+    let ziContacts: zoominfo.ZiContact[] = [];
+    let ziIntent: zoominfo.ZiIntent[] = [];
+    if (ziCompany && zoominfo.isConfigured()) {
+      const [contactsResult, intentResult] = await Promise.all([
+        zoominfo.searchContacts({ companyId: ziCompany.id, managementLevel: 'C-Level' }).catch(() => ({ data: [], totalResults: 0 })),
+        zoominfo.getCompanyIntent(ziCompany.id).catch(() => []),
+      ]);
+      ziContacts = contactsResult.data;
+      ziIntent = intentResult;
+    }
+
+    // Generate LinkedIn links for each stakeholder contact
+    const linkedInLinks = ziContacts.slice(0, 5).map(c => ({
+      contact: { name: c.fullName, title: c.jobTitle, email: c.email },
+      links: generateLinkedInLinks({
+        contactName: c.fullName,
+        contactTitle: c.jobTitle,
+        companyName,
+      }),
+    }));
+
+    // Also generate a general company LinkedIn link
+    const companyLinkedIn = generateLinkedInLinks({ companyName });
 
     // Get relevant context from seed data
     const winPatterns = getWinPatterns() as Array<Record<string, unknown>>;
@@ -103,6 +139,27 @@ ${JSON.stringify(caseStudies, null, 2)}
 ## Best Personas to Target
 ${JSON.stringify(relevantPersonas, null, 2)}
 
+${ziCompany ? `## ZoomInfo Company Data
+- Revenue: $${ziCompany.revenue?.toLocaleString() ?? 'N/A'}
+- Employees: ${ziCompany.employeeCount ?? 'N/A'}
+- Sub-Industry: ${ziCompany.subIndustry ?? 'N/A'}
+- SIC: ${ziCompany.sicCode ?? 'N/A'} | NAICS: ${ziCompany.naicsCode ?? 'N/A'}
+- HQ: ${ziCompany.city}, ${ziCompany.state}, ${ziCompany.country}
+- Description: ${ziCompany.description ?? 'N/A'}
+- Parent: ${ziCompany.parentCompany ?? 'N/A'} | Ultimate Parent: ${ziCompany.ultimateParent ?? 'N/A'}` : ''}
+
+${ziContacts.length > 0 ? `## ZoomInfo Key Contacts (C-Level)
+${ziContacts.slice(0, 8).map(c => `- ${c.fullName} — ${c.jobTitle} (${c.jobFunction})`).join('\n')}` : ''}
+
+${ziIntent.length > 0 ? `## ZoomInfo Intent Signals
+${ziIntent.slice(0, 5).map(i => `- ${i.topicName}: score ${i.signalScore} (${i.audienceStrength})`).join('\n')}` : ''}
+
+${engagementDocs.length > 0 ? `## Past SharePoint Engagement Docs
+${engagementDocs.slice(0, 5).map(d => `- [${d.type}] ${d.title}: ${d.summary}`).join('\n')}` : ''}
+
+${pastEngagements.length > 0 ? `## Similar Past Engagements
+${pastEngagements.slice(0, 5).map(e => `- ${e.customerName} (${e.industry}): ${e.useCase} — ${e.outcome}`).join('\n')}` : ''}
+
 Generate a JSON research report with these fields:
 - companyOverview: 2-3 sentence overview of the company and what they do
 - strategicPriorities: array of their current strategic priorities
@@ -116,7 +173,24 @@ Be specific to ${companyName} — no generic advice.
 `, { systemPrompt: 'You are an enterprise sales strategist. Return valid JSON only.' });
 
     // Cache the research
-    const result = { report, research, prospect };
+    const result = {
+      report,
+      research,
+      prospect,
+      zoominfo: ziCompany ? {
+        company: ziCompany,
+        contacts: ziContacts,
+        intent: ziIntent,
+      } : null,
+      sharepoint: {
+        docs: engagementDocs,
+        pastEngagements,
+      },
+      linkedin: {
+        companyLinks: companyLinkedIn,
+        contactLinks: linkedInLinks,
+      },
+    };
     cacheResearch(prospectId, 'deep', JSON.stringify(result));
 
     logActivity('research', `Completed for ${companyName}`, 2000);

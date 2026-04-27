@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getProspects, getProspectById, getTargetIndustries, getWinPatterns, logActivity, updateProspectStatusDb } from '../lib/db.js';
 import { scoreProspect } from '../lib/scoring.js';
+import * as zoominfo from '../lib/zoominfo.js';
+import { generateLinkedInLinks } from '../lib/linkedin.js';
 
 export const pipelineRouter = Router();
 
@@ -74,6 +76,79 @@ pipelineRouter.patch('/:id/status', (req, res) => {
 
     const prospect = getProspectById(Number(req.params.id));
     res.json({ prospect });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ZoomInfo contacts for a prospect
+pipelineRouter.get('/:id/contacts', async (req, res) => {
+  try {
+    const prospect = getProspectById(Number(req.params.id)) as Record<string, unknown> | undefined;
+    if (!prospect) {
+      res.status(404).json({ error: 'Prospect not found' });
+      return;
+    }
+
+    if (!zoominfo.isConfigured()) {
+      res.json({ contacts: [], configured: false });
+      return;
+    }
+
+    const companyName = prospect.company_name as string;
+    const title = req.query.title as string | undefined;
+    const managementLevel = req.query.level as string | undefined;
+
+    const result = await zoominfo.searchContacts({
+      companyName,
+      jobTitle: title,
+      managementLevel,
+      pageSize: 15,
+    });
+
+    const contacts = result.data.map(c => ({
+      ...c,
+      linkedIn: generateLinkedInLinks({
+        contactName: c.fullName,
+        contactTitle: c.jobTitle,
+        companyName,
+      }),
+    }));
+
+    res.json({ contacts, totalResults: result.totalResults });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ZoomInfo company enrichment
+pipelineRouter.get('/:id/enrich', async (req, res) => {
+  try {
+    const prospect = getProspectById(Number(req.params.id)) as Record<string, unknown> | undefined;
+    if (!prospect) {
+      res.status(404).json({ error: 'Prospect not found' });
+      return;
+    }
+
+    if (!zoominfo.isConfigured()) {
+      res.json({ company: null, intent: [], configured: false });
+      return;
+    }
+
+    const companyName = prospect.company_name as string;
+    const searchResult = await zoominfo.searchCompanies({ companyName, pageSize: 1 });
+    const company = searchResult.data[0] ?? null;
+
+    let intent: zoominfo.ZiIntent[] = [];
+    if (company) {
+      intent = await zoominfo.getCompanyIntent(company.id).catch(() => []);
+    }
+
+    const linkedIn = generateLinkedInLinks({ companyName });
+
+    res.json({ company, intent, linkedIn });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ error: err.message });

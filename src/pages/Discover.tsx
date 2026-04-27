@@ -147,7 +147,13 @@ export default function Discover() {
             ].map(suggestion => (
               <button
                 key={suggestion}
-                onClick={() => { setQuery(suggestion); }}
+                onClick={() => {
+                  setQuery(suggestion);
+                  // Auto-trigger search after setting query
+                  setTimeout(() => {
+                    document.querySelector<HTMLFormElement>('form')?.requestSubmit();
+                  }, 0);
+                }}
                 className="px-3 py-1.5 text-sm bg-gray-900 border border-gray-700 rounded-full text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
               >
                 {suggestion}

@@ -14,15 +14,45 @@ function scoreColor(score: number): string {
   return 'text-gray-400';
 }
 
+function companyLinkedInUrl(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+  return `https://www.linkedin.com/company/${slug}`;
+}
+
+function salesNavUrl(name: string): string {
+  return `https://www.linkedin.com/sales/search/people?query=${encodeURIComponent(name)}`;
+}
+
 export default function CompanyCard({ company, onResearch, onOutreach, onFindSimilar }: Props) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 hover:border-gray-700 transition-colors">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="text-lg font-semibold text-white">{company.company_name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white">{company.company_name}</h3>
+            <a
+              href={companyLinkedInUrl(company.company_name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 text-xs"
+              title="View on LinkedIn"
+            >
+              LI
+            </a>
+            <a
+              href={salesNavUrl(company.company_name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 hover:text-green-300 text-xs"
+              title="Search in Sales Navigator"
+            >
+              SN
+            </a>
+          </div>
           <p className="text-sm text-gray-400">
             {company.industry} &middot; ${company.revenue_b}B revenue
             {company.headquarters && ` &middot; ${company.headquarters}`}
+            {company.employee_count && ` &middot; ${company.employee_count.toLocaleString()} employees`}
           </p>
         </div>
         <div className={`text-2xl font-bold ${scoreColor(company.score)}`}>
