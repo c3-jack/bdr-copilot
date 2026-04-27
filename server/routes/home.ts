@@ -14,11 +14,11 @@ import { isConfigured as dynConfigured } from '../lib/dynamics.js';
 export const homeRouter = Router();
 
 homeRouter.get('/stats', (_req, res) => {
-  const wins = getWinPatterns();
+  const wins = getWinPatterns() as Array<Record<string, unknown>>;
   const icp = getIcpCriteria();
-  const industries = getTargetIndustries();
-  const caseStudies = getCaseStudies();
-  const personas = getPersonas();
+  const industries = getTargetIndustries() as Array<Record<string, unknown>>;
+  const caseStudies = getCaseStudies() as Array<Record<string, unknown>>;
+  const personas = getPersonas() as Array<Record<string, unknown>>;
   const templates = getOutreachTemplates();
   const prospects = getProspects();
 
@@ -35,9 +35,33 @@ homeRouter.get('/stats', (_req, res) => {
     integrations: {
       zoominfo: ziConfigured(),
       dynamics: dynConfigured(),
-      claude: true, // if we got here the server is running
+      claude: true,
     },
-    industries: industries.map((i: Record<string, unknown>) => i.name),
-    topUseCases: [...new Set(wins.map((w: Record<string, unknown>) => w.use_case))].slice(0, 8),
+    industries: industries.map(i => i.name),
+    topUseCases: [...new Set(wins.map(w => w.use_case))].slice(0, 8),
+    // Preview data so the home page isn't just numbers
+    preview: {
+      wins: wins.slice(0, 6).map(w => ({
+        industry: w.industry,
+        useCase: w.use_case,
+        champion: w.champion_title,
+        entry: w.entry_point,
+        deals: w.deal_count,
+        tcv: w.avg_tcv_bucket,
+      })),
+      caseStudies: caseStudies.slice(0, 5).map(c => ({
+        customer: c.customer_name,
+        industry: c.industry,
+        useCase: c.use_case,
+        value: c.value_delivered_summary,
+        isPublic: c.is_public,
+      })),
+      personas: personas.slice(0, 6).map(p => ({
+        useCase: p.use_case,
+        titles: p.title_patterns,
+        seniority: p.seniority,
+        conversion: p.conversion_rate,
+      })),
+    },
   });
 });

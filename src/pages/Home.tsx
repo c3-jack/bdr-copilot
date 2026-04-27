@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
 
+interface WinPreview { industry: string; useCase: string; champion: string; entry: string; deals: number; tcv: string }
+interface CasePreview { customer: string; industry: string; useCase: string; value: string; isPublic: boolean }
+interface PersonaPreview { useCase: string; titles: string; seniority: string; conversion: number }
+
 interface HomeStats {
   seedData: {
     winPatterns: number;
@@ -12,13 +16,14 @@ interface HomeStats {
     outreachTemplates: number;
   };
   prospects: number;
-  integrations: {
-    zoominfo: boolean;
-    dynamics: boolean;
-    claude: boolean;
-  };
+  integrations: { zoominfo: boolean; dynamics: boolean; claude: boolean };
   industries: string[];
   topUseCases: string[];
+  preview: {
+    wins: WinPreview[];
+    caseStudies: CasePreview[];
+    personas: PersonaPreview[];
+  };
 }
 
 const PROMPTS = [
@@ -47,6 +52,7 @@ const PROMPTS = [
 export default function Home() {
   const [stats, setStats] = useState<HomeStats | null>(null);
   const [copied, setCopied] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/home/stats`).then(r => r.json()).then(setStats).catch(() => {});
@@ -58,6 +64,10 @@ export default function Home() {
     setTimeout(() => setCopied(null), 2000);
   }
 
+  function toggle(key: string) {
+    setExpanded(expanded === key ? null : key);
+  }
+
   return (
     <div className="max-w-2xl">
       <h2 className="text-lg font-semibold text-neutral-100 mb-0.5">BDR Copilot</h2>
@@ -65,29 +75,8 @@ export default function Home() {
         Prospecting intelligence for C3 AI. Use the tools here or copy prompts into Claude Desktop.
       </p>
 
-      {/* What's loaded */}
-      <section className="mb-6">
-        <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Your data</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {stats ? (
-            <>
-              <Stat label="Win patterns" value={stats.seedData.winPatterns} />
-              <Stat label="Case studies" value={stats.seedData.caseStudies} />
-              <Stat label="Target industries" value={stats.seedData.targetIndustries} />
-              <Stat label="Personas" value={stats.seedData.personas} />
-              <Stat label="Email templates" value={stats.seedData.outreachTemplates} />
-              <Stat label="Saved prospects" value={stats.prospects} />
-            </>
-          ) : (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-neutral-900 border border-neutral-800 rounded p-3 animate-pulse h-16" />
-            ))
-          )}
-        </div>
-      </section>
-
       {/* Integrations */}
-      <section className="mb-6">
+      <section className="mb-5">
         <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Integrations</h3>
         <div className="bg-neutral-900 border border-neutral-800 rounded p-3 space-y-1.5">
           <Integration name="Claude Code" connected={stats?.integrations.claude ?? false} detail="Powers all AI features" />
@@ -99,30 +88,107 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How to use */}
-      <section className="mb-6">
+      {/* Win Patterns */}
+      <section className="mb-5">
+        <button onClick={() => toggle('wins')} className="flex items-center justify-between w-full mb-2">
+          <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+            Win Patterns <span className="text-neutral-600 normal-case font-normal ml-1">{stats?.seedData.winPatterns ?? '...'} loaded</span>
+          </h3>
+          <span className="text-[11px] text-neutral-600">{expanded === 'wins' ? 'Hide' : 'Show'}</span>
+        </button>
+        {expanded === 'wins' && stats?.preview.wins && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-neutral-800 text-neutral-500">
+                  <th className="text-left px-3 py-2 font-medium">Industry</th>
+                  <th className="text-left px-3 py-2 font-medium">Use Case</th>
+                  <th className="text-left px-3 py-2 font-medium">Champion</th>
+                  <th className="text-left px-3 py-2 font-medium">Entry</th>
+                  <th className="text-right px-3 py-2 font-medium">Deals</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.preview.wins.map((w, i) => (
+                  <tr key={i} className="border-b border-neutral-800/50 text-neutral-400">
+                    <td className="px-3 py-1.5">{w.industry}</td>
+                    <td className="px-3 py-1.5 text-neutral-300">{w.useCase}</td>
+                    <td className="px-3 py-1.5">{w.champion}</td>
+                    <td className="px-3 py-1.5">{w.entry}</td>
+                    <td className="px-3 py-1.5 text-right text-neutral-500">{w.deals}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Case Studies */}
+      <section className="mb-5">
+        <button onClick={() => toggle('cases')} className="flex items-center justify-between w-full mb-2">
+          <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+            Case Studies <span className="text-neutral-600 normal-case font-normal ml-1">{stats?.seedData.caseStudies ?? '...'} loaded</span>
+          </h3>
+          <span className="text-[11px] text-neutral-600">{expanded === 'cases' ? 'Hide' : 'Show'}</span>
+        </button>
+        {expanded === 'cases' && stats?.preview.caseStudies && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded divide-y divide-neutral-800">
+            {stats.preview.caseStudies.map((c, i) => (
+              <div key={i} className="px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-neutral-200">{c.customer}</span>
+                  <span className="text-[10px] px-1 py-0.5 bg-neutral-800 text-neutral-500 rounded">{c.industry}</span>
+                  {c.isPublic && <span className="text-[10px] px-1 py-0.5 bg-emerald-900/30 text-emerald-500 rounded">Public</span>}
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-0.5">{c.useCase} — {c.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Personas */}
+      <section className="mb-5">
+        <button onClick={() => toggle('personas')} className="flex items-center justify-between w-full mb-2">
+          <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+            Target Personas <span className="text-neutral-600 normal-case font-normal ml-1">{stats?.seedData.personas ?? '...'} loaded</span>
+          </h3>
+          <span className="text-[11px] text-neutral-600">{expanded === 'personas' ? 'Hide' : 'Show'}</span>
+        </button>
+        {expanded === 'personas' && stats?.preview.personas && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded divide-y divide-neutral-800">
+            {stats.preview.personas.map((p, i) => (
+              <div key={i} className="px-3 py-2 flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-neutral-300">{p.titles}</span>
+                  <span className="text-[11px] text-neutral-600 ml-2">{p.seniority}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-neutral-500">{p.useCase}</span>
+                  <span className="text-[11px] text-emerald-500 ml-2">{Math.round(p.conversion * 100)}% conv.</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* What each tab does */}
+      <section className="mb-5">
         <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">What each tab does</h3>
         <div className="bg-neutral-900 border border-neutral-800 rounded divide-y divide-neutral-800">
-          <Feature
-            name="Find Targets"
-            description="Search for companies matching C3's ICP. Scores each prospect against win patterns and recommends use cases + entry titles."
-          />
-          <Feature
-            name="Draft Outreach"
-            description="Generate personalized email sequences. Picks the right template, references relevant case studies, tailors tone to persona."
-          />
-          <Feature
-            name="My Pipeline"
-            description="Pulls your Dynamics 365 accounts, enriches with ZoomInfo, flags stale leads, suggests next actions."
-          />
+          <Feature name="Find Targets" description="Search for companies matching C3's ICP. Scores each prospect against win patterns and recommends use cases + entry titles." />
+          <Feature name="Draft Outreach" description="Generate personalized email sequences. Picks the right template, references relevant case studies, tailors tone to persona." />
+          <Feature name="My Pipeline" description="Track prospects from discovery through outreach. Enriches with ZoomInfo, flags stale leads, generates LinkedIn links." />
         </div>
       </section>
 
       {/* Claude prompts */}
-      <section className="mb-8">
-        <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Prompts for Claude</h3>
+      <section className="mb-5">
+        <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Prompts for Claude Desktop</h3>
         <p className="text-[11px] text-neutral-600 mb-2">
-          Copy these into Claude Desktop. It has access to SharePoint + Confluence via MCP.
+          Open Claude Desktop and paste these. It has access to SharePoint + Confluence via MCP.
         </p>
         <div className="space-y-2">
           {PROMPTS.map((p, i) => (
@@ -142,7 +208,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Industries + use cases */}
+      {/* Coverage tags */}
       {stats && (
         <section className="mb-8">
           <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Coverage</h3>
@@ -166,15 +232,6 @@ export default function Home() {
           </div>
         </section>
       )}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded p-3">
-      <div className="text-lg font-semibold text-neutral-100">{value}</div>
-      <div className="text-[11px] text-neutral-500">{label}</div>
     </div>
   );
 }

@@ -276,11 +276,34 @@ function createMainWindow(port) {
   return win;
 }
 
+function ensureMcps() {
+  // Auto-install MCP servers on first run (non-blocking, best-effort)
+  const claudePath = findClaudeBinary();
+  const envWithPath = { ...process.env, PATH: getShellPath() };
+
+  const mcps = [
+    { name: 'microsoft365', args: ['mcp', 'add', '--transport', 'http', '-s', 'user', 'microsoft365', 'https://microsoft365.mcp.claude.com/mcp'] },
+    { name: 'atlassian', args: ['mcp', 'add', '--transport', 'http', '-s', 'user', 'atlassian', 'https://mcp.atlassian.com/v1/mcp'] },
+    { name: 'github', args: ['mcp', 'add', '-s', 'user', 'github', '--', 'npx', '-y', '@modelcontextprotocol/server-github'] },
+  ];
+
+  for (const mcp of mcps) {
+    try {
+      execFile(claudePath, mcp.args, { timeout: 15000, env: envWithPath }, () => {});
+    } catch {
+      // Already exists or failed — either way, move on
+    }
+  }
+}
+
 app.whenReady().then(async () => {
-  // Step 1: Check Claude auth (non-blocking — check in background)
+  // Step 1: Check Claude auth + install MCPs (non-blocking)
   checkClaude().then(result => {
+    if (result.authenticated) {
+      // MCPs only work if Claude is authenticated
+      ensureMcps();
+    }
     if (!result.authenticated && mainWindow) {
-      // Show a non-blocking warning banner via JS injection
       mainWindow.webContents.executeJavaScript(`
         if (!document.getElementById('claude-warn')) {
           const d = document.createElement('div');

@@ -1,6 +1,8 @@
 {
   "name": "bdr-copilot",
   "version": "0.2.0",
+  "description": "Prospecting intelligence for C3 AI BDRs",
+  "author": "C3 AI <engineering@c3.ai>",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
