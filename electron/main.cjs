@@ -311,6 +311,242 @@ function createMainWindow(port) {
   return win;
 }
 
+function hasBrew() {
+  const fs = require('fs');
+  const candidates = ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
+function hasNode() {
+  const nodePath = findNodeBinary();
+  if (nodePath === 'node') return false; // fallback means not found
+  const fs = require('fs');
+  return fs.existsSync(nodePath);
+}
+
+function createSetupWindow() {
+  const win = new BrowserWindow({
+    width: 560,
+    height: 520,
+    resizable: false,
+    titleBarStyle: 'hiddenInset',
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0; padding: 40px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0f; color: #e2e8f0;
+      -webkit-app-region: drag;
+    }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+    .step {
+      background: #1e293b; border-radius: 8px; padding: 16px;
+      margin-bottom: 12px; font-size: 14px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .step-icon { font-size: 20px; flex-shrink: 0; }
+    .step-text { flex: 1; }
+    .step-label { font-weight: 600; margin-bottom: 2px; }
+    .step-detail { color: #94a3b8; font-size: 12px; }
+    .pending .step-icon::after { content: '⏳'; }
+    .running .step-icon::after { content: '⏳'; }
+    .done .step-icon::after { content: '✅'; }
+    .failed .step-icon::after { content: '❌'; }
+    .status { margin-top: 16px; font-size: 13px; color: #94a3b8; min-height: 20px; }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>Setting up BDR Copilot</h1>
+  <p class="subtitle">Installing prerequisites. This only happens once.</p>
+  <div class="step pending" id="step-brew">
+    <span class="step-icon"></span>
+    <div class="step-text">
+      <div class="step-label">Homebrew</div>
+      <div class="step-detail">Package manager for macOS</div>
+    </div>
+  </div>
+  <div class="step pending" id="step-node">
+    <span class="step-icon"></span>
+    <div class="step-text">
+      <div class="step-label">Node.js</div>
+      <div class="step-detail">JavaScript runtime for the backend</div>
+    </div>
+  </div>
+  <div class="step pending" id="step-claude">
+    <span class="step-icon"></span>
+    <div class="step-text">
+      <div class="step-label">Claude Code CLI</div>
+      <div class="step-detail">AI engine for research and outreach</div>
+    </div>
+  </div>
+  <div class="status" id="status"></div>
+</body>
+</html>`;
+
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  return win;
+}
+
+function setStepState(win, stepId, state, detail) {
+  win.webContents.executeJavaScript(`
+    const el = document.getElementById('${stepId}');
+    el.className = 'step ${state}';
+    ${detail ? `el.querySelector('.step-detail').textContent = '${detail}';` : ''}
+  `).catch(() => {});
+}
+
+function setStatus(win, msg, isError) {
+  win.webContents.executeJavaScript(`
+    const el = document.getElementById('status');
+    el.textContent = ${JSON.stringify(msg)};
+    el.className = 'status${isError ? ' error' : ''}';
+  `).catch(() => {});
+}
+
+function runBrewInstall() {
+  // Homebrew install needs Terminal for the password prompt
+  return new Promise((resolve, reject) => {
+    const { execFile: ef } = require('child_process');
+    // Use osascript to open Terminal and run the install, then touch a sentinel file when done
+    const sentinel = path.join(require('os').tmpdir(), '.bdr-brew-done');
+    const fs = require('fs');
+    try { fs.unlinkSync(sentinel); } catch {}
+
+    const script = `
+      tell application "Terminal"
+        activate
+        do script "/bin/bash -c \\"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\\" && touch ${sentinel}"
+      end tell
+    `;
+    ef('/usr/bin/osascript', ['-e', script], { timeout: 10000 }, (err) => {
+      if (err) return reject(err);
+      // Poll for the sentinel file (brew install can take a few minutes)
+      let attempts = 0;
+      const check = setInterval(() => {
+        attempts++;
+        if (fs.existsSync(sentinel)) {
+          clearInterval(check);
+          try { fs.unlinkSync(sentinel); } catch {}
+          resolve();
+        } else if (hasBrew()) {
+          // Brew appeared even without sentinel (user may have had it partially installed)
+          clearInterval(check);
+          resolve();
+        } else if (attempts > 360) { // 6 minutes
+          clearInterval(check);
+          reject(new Error('Homebrew install timed out'));
+        }
+      }, 1000);
+    });
+  });
+}
+
+function runCommand(cmd, args, timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    const { execFile: ef } = require('child_process');
+    const envWithPath = { ...process.env, PATH: getShellPath() };
+    ef(cmd, args, { timeout: timeoutMs, env: envWithPath }, (err, stdout, stderr) => {
+      if (err) return reject(new Error(stderr || err.message));
+      resolve(stdout);
+    });
+  });
+}
+
+async function ensurePrerequisites() {
+  const brewPath = hasBrew();
+  const nodeOk = hasNode();
+  const claudeResult = await checkClaude();
+
+  // If everything is installed, skip the setup window
+  if (brewPath && nodeOk && claudeResult.installed) {
+    return { claudeAuthenticated: claudeResult.authenticated };
+  }
+
+  const setupWin = createSetupWindow();
+  await new Promise(r => setTimeout(r, 500)); // let window render
+
+  // Step 1: Homebrew
+  if (brewPath) {
+    setStepState(setupWin, 'step-brew', 'done', 'Already installed');
+  } else {
+    setStepState(setupWin, 'step-brew', 'running', 'Installing... check Terminal for password prompt');
+    setStatus(setupWin, 'Homebrew needs your password — check the Terminal window that just opened.');
+    try {
+      await runBrewInstall();
+      setStepState(setupWin, 'step-brew', 'done', 'Installed');
+    } catch (err) {
+      setStepState(setupWin, 'step-brew', 'failed', err.message);
+      setStatus(setupWin, 'Homebrew install failed. Install manually: brew.sh', true);
+      await new Promise(r => setTimeout(r, 5000));
+      setupWin.close();
+      return { failed: true };
+    }
+  }
+
+  const brew = hasBrew() || 'brew';
+
+  // Step 2: Node.js
+  if (nodeOk) {
+    setStepState(setupWin, 'step-node', 'done', 'Already installed');
+  } else {
+    setStepState(setupWin, 'step-node', 'running', 'Installing via Homebrew...');
+    setStatus(setupWin, 'Installing Node.js...');
+    try {
+      await runCommand(brew, ['install', 'node'], 180000);
+      setStepState(setupWin, 'step-node', 'done', 'Installed');
+    } catch (err) {
+      setStepState(setupWin, 'step-node', 'failed', err.message);
+      setStatus(setupWin, 'Node install failed. Run: brew install node', true);
+      await new Promise(r => setTimeout(r, 5000));
+      setupWin.close();
+      return { failed: true };
+    }
+  }
+
+  // Step 3: Claude Code CLI
+  if (claudeResult.installed) {
+    setStepState(setupWin, 'step-claude', 'done',
+      claudeResult.authenticated ? 'Installed & authenticated' : 'Installed — needs auth');
+  } else {
+    setStepState(setupWin, 'step-claude', 'running', 'Installing via Homebrew...');
+    setStatus(setupWin, 'Installing Claude Code CLI...');
+    try {
+      await runCommand(brew, ['install', 'claude-code'], 180000);
+      setStepState(setupWin, 'step-claude', 'done', 'Installed — needs auth');
+    } catch {
+      // claude-code might not be on brew yet — try npm
+      try {
+        await runCommand('npm', ['install', '-g', '@anthropic-ai/claude-code'], 120000);
+        setStepState(setupWin, 'step-claude', 'done', 'Installed via npm — needs auth');
+      } catch (err2) {
+        setStepState(setupWin, 'step-claude', 'failed', 'Install manually: claude.ai/download');
+        setStatus(setupWin, 'Claude CLI install failed. Visit claude.ai/download', true);
+        await new Promise(r => setTimeout(r, 5000));
+        setupWin.close();
+        return { failed: true };
+      }
+    }
+  }
+
+  setStatus(setupWin, 'All set! Starting BDR Copilot...');
+  await new Promise(r => setTimeout(r, 1500));
+  setupWin.close();
+
+  // Re-check Claude auth after potential install
+  const finalClaude = await checkClaude();
+  return { claudeAuthenticated: finalClaude.authenticated };
+}
+
 function ensureMcps() {
   // Auto-install MCP servers on first run (non-blocking, best-effort)
   const claudePath = findClaudeBinary();
@@ -332,26 +568,24 @@ function ensureMcps() {
 }
 
 app.whenReady().then(async () => {
-  // Step 1: Check Claude auth + install MCPs (non-blocking)
-  checkClaude().then(result => {
-    if (result.authenticated) {
-      // MCPs only work if Claude is authenticated
+  // Step 1: Ensure all prerequisites are installed (brew, node, claude)
+  const prereqs = await ensurePrerequisites();
+  if (prereqs.failed) {
+    app.quit();
+    return;
+  }
+
+  // Step 2: If Claude is authenticated, install MCPs. If not, show auth flow.
+  if (prereqs.claudeAuthenticated) {
+    ensureMcps();
+  } else {
+    const authed = await showAuthFlow();
+    if (authed) {
       ensureMcps();
     }
-    if (!result.authenticated && mainWindow) {
-      mainWindow.webContents.executeJavaScript(`
-        if (!document.getElementById('claude-warn')) {
-          const d = document.createElement('div');
-          d.id = 'claude-warn';
-          d.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:8px 16px;background:#92400e;color:#fef3c7;font-size:13px;text-align:center;z-index:9999;font-family:system-ui';
-          d.textContent = 'Claude CLI not authenticated. Run "claude" in Terminal to sign in, then restart the app.';
-          document.body.prepend(d);
-        }
-      `);
-    }
-  });
+  }
 
-  // Step 2: Start Express backend
+  // Step 3: Start Express backend
   let port;
   try {
     port = await getFreePorts();
@@ -362,8 +596,22 @@ app.whenReady().then(async () => {
     return;
   }
 
-  // Step 3: Open main window
+  // Step 4: Open main window
   mainWindow = createMainWindow(port);
+
+  if (!prereqs.claudeAuthenticated) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.executeJavaScript(`
+        if (!document.getElementById('claude-warn')) {
+          const d = document.createElement('div');
+          d.id = 'claude-warn';
+          d.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:8px 16px;background:#92400e;color:#fef3c7;font-size:13px;text-align:center;z-index:9999;font-family:system-ui';
+          d.textContent = 'Claude CLI not authenticated. Run "claude" in Terminal to sign in, then restart the app.';
+          document.body.prepend(d);
+        }
+      `);
+    });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
