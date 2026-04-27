@@ -33,6 +33,7 @@ export async function askClaude(prompt: string, options?: {
 
   if (options?.useMcp) {
     // Allow Claude to use MCP tools for internal data access
+    // When --allowedTools is used, prompt must be passed via -p flag
     args.push('--allowedTools',
       'mcp__microsoft365__sharepoint_search',
       'mcp__microsoft365__sharepoint_folder_search',
@@ -46,9 +47,10 @@ export async function askClaude(prompt: string, options?: {
       'WebFetch',
       'WebSearch',
     );
+    args.push('-p', prompt);
+  } else {
+    args.push(prompt);
   }
-
-  args.push(prompt);
 
   try {
     const { stdout } = await exec('claude', args, {
