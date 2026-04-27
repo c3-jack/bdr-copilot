@@ -10,8 +10,8 @@ interface Props {
 
 function scoreColor(score: number): string {
   if (score >= 70) return 'text-green-400';
-  if (score >= 40) return 'text-yellow-400';
-  return 'text-gray-400';
+  if (score >= 40) return 'text-amber-400';
+  return 'text-neutral-500';
 }
 
 function companyLinkedInUrl(name: string): string {
@@ -25,17 +25,16 @@ function salesNavUrl(name: string): string {
 
 export default function CompanyCard({ company, onResearch, onOutreach, onFindSimilar }: Props) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 hover:border-gray-700 transition-colors">
-      <div className="flex items-start justify-between mb-3">
+    <div className="bg-neutral-900 border border-neutral-800 rounded p-4 hover:border-neutral-700 transition-colors">
+      <div className="flex items-start justify-between mb-2">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-white">{company.company_name}</h3>
+            <h3 className="text-sm font-medium text-neutral-100">{company.company_name}</h3>
             <a
               href={companyLinkedInUrl(company.company_name)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 text-xs"
-              title="View on LinkedIn"
+              className="text-neutral-500 hover:text-neutral-300 text-[11px]"
             >
               LI
             </a>
@@ -43,44 +42,43 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
               href={salesNavUrl(company.company_name)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-green-400 hover:text-green-300 text-xs"
-              title="Search in Sales Navigator"
+              className="text-neutral-500 hover:text-neutral-300 text-[11px]"
             >
               SN
             </a>
           </div>
-          <p className="text-sm text-gray-400">
-            {company.industry} &middot; ${company.revenue_b}B revenue
+          <p className="text-xs text-neutral-500 mt-0.5">
+            {company.industry} &middot; ${company.revenue_b}B
             {company.headquarters && ` &middot; ${company.headquarters}`}
-            {company.employee_count && ` &middot; ${company.employee_count.toLocaleString()} employees`}
+            {company.employee_count && ` &middot; ${company.employee_count.toLocaleString()} emp`}
           </p>
         </div>
-        <div className={`text-2xl font-bold ${scoreColor(company.score)}`}>
+        <span className={`text-lg font-semibold tabular-nums ${scoreColor(company.score)}`}>
           {company.score}
-        </div>
+        </span>
       </div>
 
-      <p className="text-sm text-gray-300 mb-3">{company.why_a_fit}</p>
+      <p className="text-sm text-neutral-400 mb-2">{company.why_a_fit}</p>
 
-      <div className="flex flex-wrap gap-1.5 mb-3">
+      <div className="flex flex-wrap gap-1 mb-2">
         {company.signals.map((signal, i) => (
           <SignalBadge key={i} signal={signal} />
         ))}
       </div>
 
-      <div className="bg-gray-800/50 rounded p-3 mb-4 text-sm">
+      <div className="bg-neutral-800/50 rounded p-2.5 mb-3 text-xs">
         <div className="flex gap-6">
           <div>
-            <span className="text-gray-500">Recommended Use Case</span>
-            <p className="text-blue-400 font-medium">{company.recommendedUseCase}</p>
+            <span className="text-neutral-500">Use Case</span>
+            <p className="text-neutral-200 font-medium">{company.recommendedUseCase}</p>
           </div>
           <div>
-            <span className="text-gray-500">Target Title</span>
-            <p className="text-blue-400 font-medium">{company.recommendedTitle}</p>
+            <span className="text-neutral-500">Target Title</span>
+            <p className="text-neutral-200 font-medium">{company.recommendedTitle}</p>
           </div>
         </div>
         {company.reasoning && (
-          <p className="text-gray-500 text-xs mt-2">{company.reasoning}</p>
+          <p className="text-neutral-600 text-[11px] mt-1.5">{company.reasoning}</p>
         )}
       </div>
 
@@ -88,7 +86,7 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
         {onResearch && (
           <button
             onClick={onResearch}
-            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+            className="px-3 py-1 text-xs bg-neutral-100 hover:bg-white text-neutral-900 font-medium rounded transition-colors"
           >
             Deep Research
           </button>
@@ -96,7 +94,7 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
         {onOutreach && (
           <button
             onClick={onOutreach}
-            className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+            className="px-3 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded transition-colors"
           >
             Draft Outreach
           </button>
@@ -104,7 +102,7 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
         {onFindSimilar && (
           <button
             onClick={onFindSimilar}
-            className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
+            className="px-3 py-1 text-xs text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
           >
             Find Similar
           </button>

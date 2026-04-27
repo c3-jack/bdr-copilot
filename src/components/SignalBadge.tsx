@@ -3,13 +3,13 @@ interface Props {
 }
 
 const signalColors: Record<string, string> = {
-  ai: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  cloud: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-  hire: 'bg-green-500/20 text-green-300 border-green-500/30',
-  regulatory: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-  earnings: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  partner: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-  default: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
+  ai: 'bg-violet-500/10 text-violet-400',
+  cloud: 'bg-sky-500/10 text-sky-400',
+  hire: 'bg-emerald-500/10 text-emerald-400',
+  regulatory: 'bg-amber-500/10 text-amber-400',
+  earnings: 'bg-blue-500/10 text-blue-400',
+  partner: 'bg-teal-500/10 text-teal-400',
+  default: 'bg-neutral-500/10 text-neutral-400',
 };
 
 function getColor(signal: string): string {
@@ -25,7 +25,7 @@ function getColor(signal: string): string {
 
 export default function SignalBadge({ signal }: Props) {
   return (
-    <span className={`inline-block px-2 py-0.5 text-xs rounded-full border ${getColor(signal)}`}>
+    <span className={`inline-block px-1.5 py-0.5 text-[11px] rounded ${getColor(signal)}`}>
       {signal}
     </span>
   );

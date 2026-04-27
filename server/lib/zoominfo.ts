@@ -3,6 +3,7 @@
  * Auth: PKI (client_id + private_key) → JWT token (60min expiry).
  * API base: https://api.zoominfo.com
  */
+import { resolve } from './config.js';
 
 const API_BASE = 'https://api.zoominfo.com';
 
@@ -13,11 +14,11 @@ async function getToken(): Promise<string> {
     return cachedToken.jwt;
   }
 
-  const clientId = process.env.ZOOMINFO_CLIENT_ID;
-  const privateKey = process.env.ZOOMINFO_PRIVATE_KEY;
+  const clientId = resolve('ZOOMINFO_CLIENT_ID');
+  const privateKey = resolve('ZOOMINFO_PRIVATE_KEY');
 
   if (!clientId || !privateKey) {
-    throw new Error('ZoomInfo not configured. Set ZOOMINFO_CLIENT_ID and ZOOMINFO_PRIVATE_KEY in .env');
+    throw new Error('ZoomInfo not configured. Add credentials in Settings.');
   }
 
   const res = await fetch(`${API_BASE}/authenticate`, {
@@ -55,7 +56,7 @@ async function ziRequest<T>(path: string, body: Record<string, unknown>): Promis
 }
 
 export function isConfigured(): boolean {
-  return Boolean(process.env.ZOOMINFO_CLIENT_ID && process.env.ZOOMINFO_PRIVATE_KEY);
+  return Boolean(resolve('ZOOMINFO_CLIENT_ID') && resolve('ZOOMINFO_PRIVATE_KEY'));
 }
 
 // --- Company Search ---

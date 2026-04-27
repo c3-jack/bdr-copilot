@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { askClaudeJSON } from '../lib/claude.js';
-import { webSearch } from '../lib/tavily.js';
 import { scoreProspect } from '../lib/scoring.js';
 import { getWinPatterns, getIcpCriteria, getTargetIndustries, getCaseStudies, upsertProspect, logActivity } from '../lib/db.js';
 
@@ -40,25 +39,15 @@ discoverRouter.post('/', async (req, res) => {
     const winPatterns = getWinPatterns();
     const targetIndustries = getTargetIndustries();
 
-    // Search for companies matching the query
-    const searchQuery = [
-      query,
-      industry ? `${industry} industry` : '',
-      minRevenue ? `revenue over $${minRevenue}B` : 'Fortune 500 large enterprise',
-      'AI digital transformation 2025 2026',
-    ].filter(Boolean).join(' ');
-
-    const searchResults = await webSearch(searchQuery, {
-      maxResults: 10,
-      searchDepth: 'advanced',
-      includeAnswer: true,
-    });
-
-    // Have Claude analyze search results against ICP
+    // Have Claude identify companies matching ICP using its knowledge
     const companies = await askClaudeJSON<DiscoveredCompany[]>(`
 You are a B2B sales intelligence analyst for C3 AI, an enterprise AI software company.
 
-Given these web search results about potential target companies, identify up to ${maxResults} companies that match our Ideal Customer Profile.
+A BDR is searching for: "${query}"
+${industry ? `Industry filter: ${industry}` : ''}
+${minRevenue ? `Minimum revenue: $${minRevenue}B` : 'Target: Fortune 500 / large enterprise'}
+
+Using your knowledge of the business landscape, identify up to ${maxResults} real companies that match our Ideal Customer Profile.
 
 ## ICP Criteria
 ${JSON.stringify(icpCriteria, null, 2)}
@@ -69,25 +58,17 @@ ${JSON.stringify(winPatterns.slice(0, 10), null, 2)}
 ## Target Industries
 ${JSON.stringify(targetIndustries.map((t: Record<string, unknown>) => ({ name: t.name, key_use_cases: t.key_use_cases })), null, 2)}
 
-## Search Results
-${searchResults.results.map(r => `### ${r.title}\n${r.content}\n(${r.url})`).join('\n\n')}
-
-${searchResults.answer ? `## Search Summary\n${searchResults.answer}` : ''}
-
-${industry ? `Filter to: ${industry} industry` : ''}
-${minRevenue ? `Minimum revenue: $${minRevenue}B` : ''}
-
 For each company, return:
 - company_name: official company name
 - industry: their primary industry (match to our target industries if possible)
 - revenue_b: estimated annual revenue in billions (number)
 - employee_count: estimated employee count (number or null)
 - headquarters: HQ location
-- why_a_fit: 2-3 sentences on why they match our ICP
-- signals: array of specific qualifying signals you detected (e.g., "AI job postings active", "Cloud migration announced", "New CTO hire")
+- why_a_fit: 2-3 sentences on why they match our ICP, referencing specific business challenges they face
+- signals: array of specific qualifying signals (e.g., "AI job postings active", "Cloud migration announced", "New CTO hire", "Digital transformation initiative")
 - ai_posture: brief assessment of their AI maturity and initiatives
 
-Return a JSON array of company objects. Only include companies that genuinely fit — quality over quantity.
+Return a JSON array of company objects. Only include real companies that genuinely fit — quality over quantity. Be specific about why each company is a good target.
 `, { systemPrompt: 'You are a precise B2B sales intelligence analyst. Return valid JSON arrays only.' });
 
     // Score each discovered company
@@ -132,7 +113,7 @@ Return a JSON array of company objects. Only include companies that genuinely fi
 
     logActivity('discover', `Found ${scoredCompanies.length} companies`, scoredCompanies.length * 500);
 
-    res.json({ companies: scoredCompanies, searchAnswer: searchResults.answer });
+    res.json({ companies: scoredCompanies });
   } catch (error) {
     const err = error as Error;
     res.status(500).json({ error: err.message });
@@ -151,11 +132,6 @@ discoverRouter.post('/similar', async (req, res) => {
 
     logActivity('discover_similar', `Similar to: ${companyName}`);
 
-    const searchResults = await webSearch(
-      `companies similar to ${companyName} enterprise AI digital transformation large revenue`,
-      { maxResults: 8, searchDepth: 'advanced' }
-    );
-
     const winPatterns = getWinPatterns();
     const icpCriteria = getIcpCriteria();
 
@@ -167,11 +143,10 @@ Find companies SIMILAR to ${companyName} that would be good prospects for enterp
 ## Our ICP
 ${JSON.stringify(icpCriteria, null, 2)}
 
-## Search Results
-${searchResults.results.map(r => `### ${r.title}\n${r.content}`).join('\n\n')}
+Using your knowledge of the business landscape, identify up to 5 real companies similar to ${companyName} that match our ICP.
 
-Return up to 5 companies as a JSON array. Each object needs: company_name, industry, revenue_b, employee_count, headquarters, why_a_fit, signals, ai_posture.
-Do NOT include ${companyName} itself.
+Return a JSON array. Each object needs: company_name, industry, revenue_b, employee_count, headquarters, why_a_fit, signals, ai_posture.
+Do NOT include ${companyName} itself. Only include real companies.
 `, { systemPrompt: 'You are a precise B2B sales intelligence analyst. Return valid JSON arrays only.' });
 
     const scoredCompanies = companies.map(company => {

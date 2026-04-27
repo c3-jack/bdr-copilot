@@ -12,10 +12,14 @@ interface ClaudeResponse {
  * Call Claude via the local Claude Code CLI.
  * BDRs already have Claude Code subscriptions — no API key needed.
  * Uses `claude --print` for non-interactive single-shot prompts.
+ *
+ * When `useMcp` is true, allows MCP tools (SharePoint, Confluence, etc.)
+ * so Claude can search internal systems during research.
  */
 export async function askClaude(prompt: string, options?: {
   systemPrompt?: string;
   outputFormat?: 'text' | 'json';
+  useMcp?: boolean;
 }): Promise<ClaudeResponse> {
   const args = ['--print'];
 
@@ -25,6 +29,23 @@ export async function askClaude(prompt: string, options?: {
 
   if (options?.outputFormat) {
     args.push('--output-format', options.outputFormat);
+  }
+
+  if (options?.useMcp) {
+    // Allow Claude to use MCP tools for internal data access
+    args.push('--allowedTools',
+      'mcp__microsoft365__sharepoint_search',
+      'mcp__microsoft365__sharepoint_folder_search',
+      'mcp__microsoft365__outlook_email_search',
+      'mcp__microsoft365__read_resource',
+      'mcp__atlassian__searchConfluenceUsingCql',
+      'mcp__atlassian__getConfluencePage',
+      'mcp__atlassian__getConfluenceSpaces',
+      'mcp__atlassian__searchJiraIssuesUsingJql',
+      'mcp__atlassian__search',
+      'WebFetch',
+      'WebSearch',
+    );
   }
 
   args.push(prompt);
@@ -47,6 +68,7 @@ export async function askClaude(prompt: string, options?: {
  */
 export async function askClaudeJSON<T>(prompt: string, options?: {
   systemPrompt?: string;
+  useMcp?: boolean;
 }): Promise<T> {
   const response = await askClaude(
     prompt + '\n\nRespond with valid JSON only, no markdown fencing.',

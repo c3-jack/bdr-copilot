@@ -1,38 +1,42 @@
 import { NavLink } from 'react-router-dom';
 
 const links = [
-  { to: '/discover', label: 'Find Targets', icon: '🔍' },
-  { to: '/outreach', label: 'Draft Outreach', icon: '✉️' },
-  { to: '/pipeline', label: 'My Pipeline', icon: '📊' },
+  { to: '/', label: 'Home' },
+  { to: '/discover', label: 'Find Targets' },
+  { to: '/outreach', label: 'Draft Outreach' },
+  { to: '/pipeline', label: 'My Pipeline' },
+  { to: '/settings', label: 'Settings' },
 ];
 
 export default function Sidebar() {
   return (
-    <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
-      <div className="p-4 border-b border-gray-800">
-        <h1 className="text-lg font-bold text-white tracking-tight">BDR Copilot</h1>
-        <p className="text-xs text-gray-500 mt-0.5">C3 AI Prospecting</p>
+    <aside className="w-52 bg-neutral-900 border-r border-neutral-800 flex flex-col select-none">
+      {/* Spacer for Electron traffic lights */}
+      <div className="h-12 flex-shrink-0 draggable" />
+      <div className="px-4 pb-4">
+        <h1 className="text-sm font-semibold text-neutral-200 tracking-tight">BDR Copilot</h1>
+        <p className="text-[11px] text-neutral-500">C3 AI</p>
       </div>
-      <nav className="flex-1 py-4">
+      <nav className="flex-1 px-2 space-y-0.5">
         {links.map(link => (
           <NavLink
             key={link.to}
             to={link.to}
+            end={link.to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+              `block px-3 py-1.5 text-[13px] rounded transition-colors ${
                 isActive
-                  ? 'bg-blue-600/20 text-blue-400 border-r-2 border-blue-400'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                  ? 'bg-neutral-800 text-neutral-100 font-medium'
+                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
               }`
             }
           >
-            <span>{link.icon}</span>
-            <span>{link.label}</span>
+            {link.label}
           </NavLink>
         ))}
       </nav>
-      <div className="p-4 border-t border-gray-800 text-xs text-gray-600">
-        v0.1.0
+      <div className="px-4 py-3 text-[11px] text-neutral-600">
+        v0.2.0
       </div>
     </aside>
   );

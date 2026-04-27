@@ -64,24 +64,24 @@ export default function Discover() {
   }
 
   return (
-    <div className="max-w-4xl">
-      <h2 className="text-2xl font-bold text-white mb-1">Find New Targets</h2>
-      <p className="text-gray-400 text-sm mb-6">
-        Search for companies matching C3 AI's ICP. Powered by web search + AI analysis.
+    <div className="max-w-3xl">
+      <h2 className="text-lg font-semibold text-neutral-100 mb-0.5">Find New Targets</h2>
+      <p className="text-neutral-500 text-sm mb-5">
+        Search for companies matching C3 AI's ICP.
       </p>
 
-      <form onSubmit={handleSearch} className="flex gap-3 mb-6">
+      <form onSubmit={handleSearch} className="flex gap-2 mb-6">
         <input
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="e.g., large manufacturing companies investing in AI..."
-          className="flex-1 px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+          className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
         />
         <select
           value={industry}
           onChange={e => setIndustry(e.target.value)}
-          className="px-3 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 focus:outline-none focus:border-blue-500"
+          className="px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-300 focus:outline-none focus:border-neutral-600"
         >
           {INDUSTRIES.map(ind => (
             <option key={ind}>{ind}</option>
@@ -90,35 +90,35 @@ export default function Discover() {
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors"
+          className="px-4 py-2 bg-neutral-100 hover:bg-white disabled:bg-neutral-800 disabled:text-neutral-600 text-neutral-900 text-sm font-medium rounded transition-colors"
         >
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
 
       {error && (
-        <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-lg mb-6">
+        <div className="bg-red-950/50 border border-red-900/50 text-red-400 px-3 py-2 rounded text-sm mb-4">
           {error}
         </div>
       )}
 
       {loading && (
         <div className="text-center py-16">
-          <div className="inline-block w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-400">Researching companies and scoring against ICP...</p>
-          <p className="text-gray-600 text-sm mt-1">This takes 30-60 seconds</p>
+          <div className="inline-block w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-neutral-500 text-sm">Researching companies...</p>
+          <p className="text-neutral-600 text-xs mt-1">30-60 seconds</p>
         </div>
       )}
 
       {searchAnswer && !loading && (
-        <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-4 mb-6">
-          <p className="text-sm text-blue-200">{searchAnswer}</p>
+        <div className="bg-neutral-900 border border-neutral-800 rounded p-3 mb-4">
+          <p className="text-sm text-neutral-300">{searchAnswer}</p>
         </div>
       )}
 
       {!loading && companies.length > 0 && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-500">{companies.length} companies found, ranked by ICP fit</p>
+        <div className="space-y-3">
+          <p className="text-xs text-neutral-500">{companies.length} companies, ranked by ICP fit</p>
           {companies.map((company, i) => (
             <CompanyCard
               key={i}
@@ -130,14 +130,14 @@ export default function Discover() {
       )}
 
       {!loading && !error && companies.length === 0 && query && (
-        <div className="text-center py-16 text-gray-500">
-          No results yet. Try a broader search.
+        <div className="text-center py-16 text-neutral-500 text-sm">
+          No results. Try a broader search.
         </div>
       )}
 
       {!query && !loading && companies.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-gray-500 mb-4">Try searching for:</p>
+          <p className="text-neutral-500 text-sm mb-3">Try searching for:</p>
           <div className="flex flex-wrap gap-2 justify-center">
             {[
               'Fortune 500 manufacturing companies investing in AI',
@@ -149,12 +149,11 @@ export default function Discover() {
                 key={suggestion}
                 onClick={() => {
                   setQuery(suggestion);
-                  // Auto-trigger search after setting query
                   setTimeout(() => {
                     document.querySelector<HTMLFormElement>('form')?.requestSubmit();
                   }, 0);
                 }}
-                className="px-3 py-1.5 text-sm bg-gray-900 border border-gray-700 rounded-full text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+                className="px-3 py-1.5 text-xs bg-neutral-900 border border-neutral-800 rounded text-neutral-400 hover:text-neutral-200 hover:border-neutral-700 transition-colors"
               >
                 {suggestion}
               </button>

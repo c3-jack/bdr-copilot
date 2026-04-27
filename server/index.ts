@@ -6,6 +6,8 @@ import { discoverRouter } from './routes/discover.js';
 import { researchRouter } from './routes/research.js';
 import { outreachRouter } from './routes/outreach.js';
 import { pipelineRouter } from './routes/pipeline.js';
+import { settingsRouter } from './routes/settings.js';
+import { homeRouter } from './routes/home.js';
 import { initDatabase, purgeStaleCache } from './lib/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +22,8 @@ app.use('/api/discover', discoverRouter);
 app.use('/api/research', researchRouter);
 app.use('/api/outreach', outreachRouter);
 app.use('/api/pipeline', pipelineRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/home', homeRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -27,23 +31,35 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Serve static React app in production
-const clientDist = path.resolve(__dirname, '../dist/client');
+const clientDist = __dirname.includes('dist')
+  ? path.resolve(__dirname, '../client')   // dist/server → dist/client
+  : path.resolve(__dirname, '../dist/client'); // server → dist/client
 app.use(express.static(clientDist));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
-async function start() {
-  // Initialize DB (creates + seeds if first run)
+export async function startServer(port?: number): Promise<number> {
+  const usePort = port ?? Number(PORT);
   await initDatabase();
   purgeStaleCache();
 
-  app.listen(PORT, () => {
-    console.log(`BDR Copilot server running on http://localhost:${PORT}`);
+  return new Promise((resolve, reject) => {
+    const server = app.listen(usePort, () => {
+      const addr = server.address();
+      const actualPort = typeof addr === 'object' && addr ? addr.port : usePort;
+      resolve(actualPort);
+    });
+    server.on('error', reject);
   });
 }
 
-start().catch(err => {
+// Always auto-start when this file is executed directly (including via fork)
+startServer().then(port => {
+  // eslint-disable-next-line no-console
+  console.log(`BDR Copilot server running on http://localhost:${port}`);
+}).catch(err => {
+  // eslint-disable-next-line no-console
   console.error('Failed to start server:', err);
   process.exit(1);
 });

@@ -4,9 +4,14 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.resolve(__dirname, '../../db/bdr-copilot.db');
-const SCHEMA_PATH = path.resolve(__dirname, '../../db/schema.sql');
-const SEED_PATH = path.resolve(__dirname, '../../db/seed.sql');
+
+// In dev (server/lib/), go up 2 levels. In dist (dist/server/lib/), go up 3 levels.
+const PROJECT_ROOT = __dirname.includes('dist')
+  ? path.resolve(__dirname, '../../..')
+  : path.resolve(__dirname, '../..');
+const DB_PATH = path.join(PROJECT_ROOT, 'db/bdr-copilot.db');
+const SCHEMA_PATH = path.join(PROJECT_ROOT, 'db/schema.sql');
+const SEED_PATH = path.join(PROJECT_ROOT, 'db/seed.sql');
 
 let db: Database | null = null;
 

@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { askClaudeJSON } from '../lib/claude.js';
-import { researchCompany } from '../lib/tavily.js';
+import { askClaude, askClaudeJSON } from '../lib/claude.js';
 import { scoreProspect } from '../lib/scoring.js';
 import {
   getProspectById,
@@ -66,8 +65,20 @@ researchRouter.post('/:prospectId', async (req, res) => {
     const industry = prospect.industry as string;
 
     // Run research sources in parallel
-    const [research, ziCompanyResult, engagementDocs, pastEngagements] = await Promise.all([
-      researchCompany(companyName),
+    const [researchText, ziCompanyResult, engagementDocs, pastEngagements] = await Promise.all([
+      askClaude(`Research ${companyName} (${industry} industry).
+
+Search SharePoint and Confluence for any internal documents, account plans, or past engagement notes about ${companyName}. Also search for general intelligence.
+
+Provide:
+1) Any internal C3 AI context on this company (past deals, meetings, proposals)
+2) Recent news and strategic moves
+3) AI and digital transformation initiatives
+4) Financial performance and outlook
+
+Be specific and factual. Clearly label which information came from internal sources vs general knowledge.`,
+        { systemPrompt: 'You are a business intelligence researcher with access to SharePoint and Confluence via MCP tools. Use them to find internal documents. Be concise and factual.', useMcp: true }
+      ).then(r => r.text),
       zoominfo.isConfigured()
         ? zoominfo.searchCompanies({ companyName }).catch(() => ({ data: [], totalResults: 0 }))
         : Promise.resolve({ data: [], totalResults: 0 }),
@@ -121,14 +132,8 @@ You are an enterprise sales strategist at C3 AI. Generate a deep research report
 - Revenue: $${prospect.revenue_b}B
 - Detected Signals: ${prospect.signals_json}
 
-## Recent News
-${research.news.map(r => `- ${r.title}: ${r.content.slice(0, 300)}`).join('\n')}
-
-## AI-Related Intelligence
-${research.aiSignals.map(r => `- ${r.title}: ${r.content.slice(0, 300)}`).join('\n')}
-
-## Financial Intelligence
-${research.financials.map(r => `- ${r.title}: ${r.content.slice(0, 300)}`).join('\n')}
+## Company Research
+${researchText}
 
 ## Our Win Patterns in ${industry}
 ${JSON.stringify(relevantPatterns, null, 2)}
@@ -175,7 +180,6 @@ Be specific to ${companyName} — no generic advice.
     // Cache the research
     const result = {
       report,
-      research,
       prospect,
       zoominfo: ziCompany ? {
         company: ziCompany,
@@ -213,7 +217,11 @@ researchRouter.get('/quick/:prospectId', async (req, res) => {
     }
 
     const companyName = prospect.company_name as string;
-    const research = await researchCompany(companyName);
+
+    const researchText = await askClaude(
+      `Quick overview of ${companyName}: check SharePoint/Confluence for any internal notes, then summarize what they do, recent news, any AI/digital transformation activity. 3-4 paragraphs max.`,
+      { systemPrompt: 'You are a business intelligence researcher with access to SharePoint and Confluence via MCP tools. Use them for internal context. Be concise and factual.', useMcp: true }
+    );
 
     const scoring = scoreProspect({
       industry: prospect.industry as string,
@@ -222,7 +230,7 @@ researchRouter.get('/quick/:prospectId', async (req, res) => {
 
     res.json({
       prospect,
-      research,
+      research: researchText.text,
       scoring,
     });
   } catch (error) {

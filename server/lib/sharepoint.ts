@@ -6,6 +6,9 @@
 
 import { askClaudeJSON } from './claude.js';
 
+// All calls in this module use MCP tools for real SharePoint/Confluence access
+const MCP_OPTS = { useMcp: true } as const;
+
 export interface EngagementDoc {
   title: string;
   type: 'account_plan' | 'proposal' | 'case_study' | 'presentation' | 'meeting_notes' | 'other';
@@ -65,7 +68,8 @@ For each document found, return:
 
 Return a JSON array. If no documents are found, return an empty array [].
 `, {
-      systemPrompt: 'You are a sales research assistant with access to SharePoint. Search for relevant engagement documents and return structured results as JSON.',
+      systemPrompt: 'You are a sales research assistant with access to SharePoint and Confluence via MCP tools. Use them to search for relevant engagement documents. Return structured results as JSON.',
+      ...MCP_OPTS,
     });
 
     return docs;
@@ -107,7 +111,8 @@ For each similar engagement found, return:
 
 Return a JSON array. If no engagements are found, return an empty array [].
 `, {
-      systemPrompt: 'You are a sales research assistant. Search internal documents for past engagement data and return structured JSON results.',
+      systemPrompt: 'You are a sales research assistant with access to SharePoint and Confluence via MCP tools. Use them to search for past engagement data. Return structured JSON results.',
+      ...MCP_OPTS,
     });
 
     return engagements;

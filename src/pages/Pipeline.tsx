@@ -5,17 +5,17 @@ import SignalBadge from '../components/SignalBadge';
 const STATUS_FILTERS = ['all', 'new', 'researched', 'contacted', 'qualified', 'disqualified'];
 
 const statusColors: Record<string, string> = {
-  new: 'bg-blue-500/20 text-blue-300',
-  researched: 'bg-purple-500/20 text-purple-300',
-  contacted: 'bg-yellow-500/20 text-yellow-300',
-  qualified: 'bg-green-500/20 text-green-300',
-  disqualified: 'bg-red-500/20 text-red-300',
+  new: 'bg-blue-500/10 text-blue-400',
+  researched: 'bg-violet-500/10 text-violet-400',
+  contacted: 'bg-amber-500/10 text-amber-400',
+  qualified: 'bg-emerald-500/10 text-emerald-400',
+  disqualified: 'bg-red-500/10 text-red-400',
 };
 
 function scoreColor(score: number): string {
   if (score >= 70) return 'text-green-400';
-  if (score >= 40) return 'text-yellow-400';
-  return 'text-gray-500';
+  if (score >= 40) return 'text-amber-400';
+  return 'text-neutral-500';
 }
 
 interface EnrichmentData {
@@ -96,36 +96,36 @@ export default function Pipeline() {
   });
 
   return (
-    <div className="max-w-5xl">
-      <h2 className="text-2xl font-bold text-white mb-1">My Pipeline</h2>
-      <p className="text-gray-400 text-sm mb-6">
-        Track and manage your discovered prospects.
+    <div className="max-w-4xl">
+      <h2 className="text-lg font-semibold text-neutral-100 mb-0.5">My Pipeline</h2>
+      <p className="text-neutral-500 text-sm mb-5">
+        Track and manage discovered prospects.
       </p>
 
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-1.5">
           {STATUS_FILTERS.map(s => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors capitalize ${
+              className={`px-2.5 py-1 text-xs rounded transition-colors capitalize ${
                 filter === s
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'
+                  ? 'bg-neutral-100 text-neutral-900 font-medium'
+                  : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800'
               }`}
             >
               {s}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Sort:</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-neutral-600">Sort:</span>
           {(['score', 'date', 'company'] as const).map(s => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
-              className={`px-2 py-1 text-xs rounded transition-colors capitalize ${
-                sortBy === s ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
+              className={`px-1.5 py-0.5 text-[11px] rounded transition-colors capitalize ${
+                sortBy === s ? 'text-neutral-200' : 'text-neutral-600 hover:text-neutral-400'
               }`}
             >
               {s}
@@ -136,77 +136,75 @@ export default function Pipeline() {
 
       {loading ? (
         <div className="text-center py-16">
-          <div className="inline-block w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="inline-block w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : sorted.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
+        <div className="text-center py-16 text-neutral-500 text-sm">
           {filter === 'all'
             ? 'No prospects yet. Use Find Targets to discover companies.'
-            : `No prospects with status "${filter}".`}
+            : `No "${filter}" prospects.`}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {sorted.map(prospect => (
             <div
               key={prospect.id}
-              className={`bg-gray-900 border rounded-lg transition-colors ${
-                prospect.isStale ? 'border-amber-800/50' : 'border-gray-800'
+              className={`bg-neutral-900 border rounded transition-colors ${
+                prospect.isStale ? 'border-amber-900/40' : 'border-neutral-800'
               }`}
             >
-              <div className="p-4">
+              <div className="p-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-white font-medium">{prospect.company_name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[prospect.status] ?? statusColors.new}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-sm font-medium text-neutral-200">{prospect.company_name}</h3>
+                      <span className={`text-[11px] px-1.5 py-0.5 rounded capitalize ${statusColors[prospect.status] ?? statusColors.new}`}>
                         {prospect.status}
                       </span>
                       {prospect.isStale && (
-                        <span className="text-xs text-amber-400">
-                          Stale ({prospect.daysSinceUpdate}d)
+                        <span className="text-[11px] text-amber-500">
+                          {prospect.daysSinceUpdate}d stale
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-400 mb-2">
+                    <p className="text-xs text-neutral-500 mb-1.5">
                       {prospect.industry} &middot; ${prospect.revenue_b}B
                       {prospect.recommended_use_case && (
-                        <> &middot; <span className="text-blue-400">{prospect.recommended_use_case}</span></>
+                        <> &middot; <span className="text-neutral-400">{prospect.recommended_use_case}</span></>
                       )}
                       {prospect.recommended_title && (
-                        <> &middot; Target: <span className="text-blue-400">{prospect.recommended_title}</span></>
+                        <> &middot; <span className="text-neutral-400">{prospect.recommended_title}</span></>
                       )}
                     </p>
-                    <div className="flex items-center gap-2">
-                      {prospect.signals && prospect.signals.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {prospect.signals.slice(0, 4).map((s, i) => (
-                            <SignalBadge key={i} signal={s} />
-                          ))}
-                          {prospect.signals.length > 4 && (
-                            <span className="text-xs text-gray-500">+{prospect.signals.length - 4} more</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    {prospect.signals && prospect.signals.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {prospect.signals.slice(0, 4).map((s, i) => (
+                          <SignalBadge key={i} signal={s} />
+                        ))}
+                        {prospect.signals.length > 4 && (
+                          <span className="text-[11px] text-neutral-600">+{prospect.signals.length - 4}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 ml-4">
                     <button
                       onClick={() => handleExpand(prospect)}
                       className={`text-xs px-2 py-1 rounded transition-colors ${
                         expandedId === prospect.id
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                          ? 'bg-neutral-100 text-neutral-900 font-medium'
+                          : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800'
                       }`}
                     >
                       {expandedId === prospect.id ? 'Close' : 'Enrich'}
                     </button>
-                    <span className={`text-xl font-bold ${scoreColor(prospect.score ?? 0)}`}>
+                    <span className={`text-base font-semibold tabular-nums ${scoreColor(prospect.score ?? 0)}`}>
                       {prospect.score ?? '--'}
                     </span>
                     <select
                       value={prospect.status}
                       onChange={e => handleStatusChange(prospect.id, e.target.value)}
-                      className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-300"
+                      className="text-[11px] bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5 text-neutral-400"
                     >
                       {STATUS_FILTERS.filter(s => s !== 'all').map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -217,69 +215,63 @@ export default function Pipeline() {
               </div>
 
               {expandedId === prospect.id && (
-                <div className="border-t border-gray-800 p-4">
+                <div className="border-t border-neutral-800 p-3">
                   {enrichLoading ? (
-                    <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
-                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      Fetching ZoomInfo data and LinkedIn links...
+                    <div className="flex items-center gap-2 text-neutral-500 text-xs py-3">
+                      <div className="w-3.5 h-3.5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
+                      Fetching enrichment data...
                     </div>
                   ) : enrichment ? (
-                    <div className="space-y-4">
-                      {/* LinkedIn Quick Links */}
-                      <div className="flex gap-3 text-sm">
-                        <a href={enrichment.linkedIn.companyPage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-                          LinkedIn Company Page
+                    <div className="space-y-3">
+                      <div className="flex gap-3 text-xs">
+                        <a href={enrichment.linkedIn.companyPage} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-neutral-200 underline underline-offset-2">
+                          LinkedIn
                         </a>
-                        <a href={enrichment.linkedIn.salesNavSearch} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">
+                        <a href={enrichment.linkedIn.salesNavSearch} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-neutral-200 underline underline-offset-2">
                           Sales Navigator
                         </a>
                       </div>
 
-                      {/* ZoomInfo Company */}
                       {enrichment.company && (
-                        <div className="bg-gray-800/50 rounded p-3">
-                          <h4 className="text-xs text-gray-500 uppercase tracking-wider mb-2">ZoomInfo Company Data</h4>
-                          <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div className="bg-neutral-800/40 rounded p-2.5">
+                          <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">Company</h4>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
                             <div>
-                              <span className="text-gray-500">Revenue</span>
-                              <p className="text-white">{enrichment.company.revenueRange || `$${(enrichment.company.revenue / 1e6).toFixed(0)}M`}</p>
+                              <span className="text-neutral-500">Revenue</span>
+                              <p className="text-neutral-200">{enrichment.company.revenueRange || `$${(enrichment.company.revenue / 1e6).toFixed(0)}M`}</p>
                             </div>
                             <div>
-                              <span className="text-gray-500">Employees</span>
-                              <p className="text-white">{enrichment.company.employeeCount?.toLocaleString()}</p>
+                              <span className="text-neutral-500">Employees</span>
+                              <p className="text-neutral-200">{enrichment.company.employeeCount?.toLocaleString()}</p>
                             </div>
                             <div>
-                              <span className="text-gray-500">HQ</span>
-                              <p className="text-white">{enrichment.company.city}, {enrichment.company.state}</p>
+                              <span className="text-neutral-500">HQ</span>
+                              <p className="text-neutral-200">{enrichment.company.city}, {enrichment.company.state}</p>
                             </div>
                             <div>
-                              <span className="text-gray-500">Sub-Industry</span>
-                              <p className="text-white">{enrichment.company.subIndustry}</p>
+                              <span className="text-neutral-500">Sub-Industry</span>
+                              <p className="text-neutral-200">{enrichment.company.subIndustry}</p>
                             </div>
                             <div>
-                              <span className="text-gray-500">Website</span>
-                              <p className="text-white">{enrichment.company.website}</p>
+                              <span className="text-neutral-500">Website</span>
+                              <p className="text-neutral-200">{enrichment.company.website}</p>
                             </div>
                             {enrichment.company.ticker && (
                               <div>
-                                <span className="text-gray-500">Ticker</span>
-                                <p className="text-white">{enrichment.company.ticker}</p>
+                                <span className="text-neutral-500">Ticker</span>
+                                <p className="text-neutral-200">{enrichment.company.ticker}</p>
                               </div>
                             )}
                           </div>
-                          {enrichment.company.description && (
-                            <p className="text-xs text-gray-400 mt-2">{enrichment.company.description.slice(0, 200)}...</p>
-                          )}
                         </div>
                       )}
 
-                      {/* Intent Signals */}
                       {enrichment.intent.length > 0 && (
-                        <div className="bg-gray-800/50 rounded p-3">
-                          <h4 className="text-xs text-gray-500 uppercase tracking-wider mb-2">Intent Signals</h4>
-                          <div className="flex flex-wrap gap-2">
+                        <div className="bg-neutral-800/40 rounded p-2.5">
+                          <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">Intent Signals</h4>
+                          <div className="flex flex-wrap gap-1.5">
                             {enrichment.intent.map((intent, i) => (
-                              <span key={i} className="text-xs px-2 py-1 rounded bg-purple-900/30 text-purple-300">
+                              <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400">
                                 {intent.topicName} ({intent.signalScore})
                               </span>
                             ))}
@@ -287,37 +279,22 @@ export default function Pipeline() {
                         </div>
                       )}
 
-                      {/* Contacts */}
                       {enrichment.contacts.length > 0 && (
-                        <div className="bg-gray-800/50 rounded p-3">
-                          <h4 className="text-xs text-gray-500 uppercase tracking-wider mb-2">
-                            Key Contacts ({enrichment.contacts.length})
+                        <div className="bg-neutral-800/40 rounded p-2.5">
+                          <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">
+                            Contacts ({enrichment.contacts.length})
                           </h4>
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {enrichment.contacts.slice(0, 8).map((c, i) => (
-                              <div key={i} className="flex items-center justify-between text-sm">
+                              <div key={i} className="flex items-center justify-between text-xs">
                                 <div>
-                                  <span className="text-white">{c.fullName}</span>
-                                  <span className="text-gray-500 ml-2">{c.jobTitle}</span>
+                                  <span className="text-neutral-200">{c.fullName}</span>
+                                  <span className="text-neutral-500 ml-1.5">{c.jobTitle}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {c.email && <span className="text-xs text-gray-400">{c.email}</span>}
-                                  <a
-                                    href={c.linkedIn.profileSearch}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-400 hover:text-blue-300"
-                                  >
-                                    LI
-                                  </a>
-                                  <a
-                                    href={c.linkedIn.salesNavSearch}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-green-400 hover:text-green-300"
-                                  >
-                                    SN
-                                  </a>
+                                  {c.email && <span className="text-[11px] text-neutral-500">{c.email}</span>}
+                                  <a href={c.linkedIn.profileSearch} target="_blank" rel="noopener noreferrer" className="text-[11px] text-neutral-500 hover:text-neutral-300">LI</a>
+                                  <a href={c.linkedIn.salesNavSearch} target="_blank" rel="noopener noreferrer" className="text-[11px] text-neutral-500 hover:text-neutral-300">SN</a>
                                 </div>
                               </div>
                             ))}
@@ -326,8 +303,8 @@ export default function Pipeline() {
                       )}
 
                       {!enrichment.configured && (
-                        <p className="text-xs text-gray-500">
-                          ZoomInfo not configured. Add ZOOMINFO_CLIENT_ID and ZOOMINFO_PRIVATE_KEY to .env for contact enrichment.
+                        <p className="text-[11px] text-neutral-600">
+                          ZoomInfo not configured. Add credentials in Settings for contact enrichment.
                         </p>
                       )}
                     </div>
@@ -340,10 +317,10 @@ export default function Pipeline() {
       )}
 
       {!loading && sorted.length > 0 && (
-        <p className="text-xs text-gray-600 mt-4">
+        <p className="text-[11px] text-neutral-600 mt-3">
           {sorted.length} prospect{sorted.length !== 1 ? 's' : ''} &middot;
           {sorted.filter(p => p.isStale).length} stale &middot;
-          Avg score: {Math.round(sorted.reduce((sum, p) => sum + (p.score ?? 0), 0) / sorted.length)}
+          avg score {Math.round(sorted.reduce((sum, p) => sum + (p.score ?? 0), 0) / sorted.length)}
         </p>
       )}
     </div>

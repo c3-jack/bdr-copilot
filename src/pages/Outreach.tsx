@@ -51,22 +51,22 @@ export default function Outreach() {
   }
 
   return (
-    <div className="max-w-4xl">
-      <h2 className="text-2xl font-bold text-white mb-1">Draft Outreach</h2>
-      <p className="text-gray-400 text-sm mb-6">
-        Generate personalized email sequences based on company research and win patterns.
+    <div className="max-w-3xl">
+      <h2 className="text-lg font-semibold text-neutral-100 mb-0.5">Draft Outreach</h2>
+      <p className="text-neutral-500 text-sm mb-5">
+        Generate personalized email sequences from research and win patterns.
       </p>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Company</label>
+          <label className="block text-xs text-neutral-500 mb-1">Company</label>
           <select
             value={selectedProspect?.id ?? ''}
             onChange={e => {
               const p = prospects.find(p => p.id === Number(e.target.value));
               setSelectedProspect(p ?? null);
             }}
-            className="w-full px-3 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-300 focus:outline-none focus:border-neutral-600"
           >
             <option value="">Select a prospect...</option>
             {prospects.map(p => (
@@ -78,11 +78,11 @@ export default function Outreach() {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Tone</label>
+          <label className="block text-xs text-neutral-500 mb-1">Tone</label>
           <select
             value={tone}
             onChange={e => setTone(e.target.value)}
-            className="w-full px-3 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-300 focus:outline-none focus:border-neutral-600"
           >
             {TONES.map(t => (
               <option key={t.value} value={t.value}>{t.label}</option>
@@ -91,11 +91,11 @@ export default function Outreach() {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Emails in Sequence</label>
+          <label className="block text-xs text-neutral-500 mb-1">Emails</label>
           <select
             value={sequenceLength}
             onChange={e => setSequenceLength(Number(e.target.value))}
-            className="w-full px-3 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-300 focus:outline-none focus:border-neutral-600"
           >
             {[1, 2, 3, 4, 5].map(n => (
               <option key={n} value={n}>{n} email{n > 1 ? 's' : ''}</option>
@@ -105,81 +105,80 @@ export default function Outreach() {
       </div>
 
       {selectedProspect && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded p-3 mb-3 text-sm">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-white font-medium">{selectedProspect.company_name}</span>
-              <span className="text-gray-500 ml-2">
+              <span className="text-neutral-200 font-medium">{selectedProspect.company_name}</span>
+              <span className="text-neutral-500 ml-2 text-xs">
                 {selectedProspect.industry} &middot; ${selectedProspect.revenue_b}B
               </span>
             </div>
-            <div className="text-sm text-gray-400">
-              Target: <span className="text-blue-400">{selectedProspect.recommended_title ?? selectedProspect.recommendedTitle}</span>
-              &middot; Use Case: <span className="text-blue-400">{selectedProspect.recommended_use_case ?? selectedProspect.recommendedUseCase}</span>
+            <div className="text-xs text-neutral-500">
+              Target: <span className="text-neutral-300">{selectedProspect.recommended_title ?? selectedProspect.recommendedTitle}</span>
+              {' '}&middot;{' '}
+              <span className="text-neutral-300">{selectedProspect.recommended_use_case ?? selectedProspect.recommendedUseCase}</span>
             </div>
           </div>
         </div>
       )}
 
       <div className="mb-4">
-        <label className="block text-sm text-gray-400 mb-1">Additional Context (optional)</label>
+        <label className="block text-xs text-neutral-500 mb-1">Additional context (optional)</label>
         <textarea
           value={customContext}
           onChange={e => setCustomContext(e.target.value)}
-          placeholder="e.g., Met their VP at AWS re:Invent. They mentioned evaluating predictive maintenance vendors..."
-          className="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 h-20 resize-none"
+          placeholder="e.g., Met their VP at AWS re:Invent..."
+          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600 h-16 resize-none"
         />
       </div>
 
       <button
         onClick={handleGenerate}
         disabled={loading || !selectedProspect}
-        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors mb-6"
+        className="px-4 py-2 bg-neutral-100 hover:bg-white disabled:bg-neutral-800 disabled:text-neutral-600 text-neutral-900 text-sm font-medium rounded transition-colors mb-6"
       >
         {loading ? 'Generating...' : 'Generate Sequence'}
       </button>
 
       {error && (
-        <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-lg mb-6">
+        <div className="bg-red-950/50 border border-red-900/50 text-red-400 px-3 py-2 rounded text-sm mb-4">
           {error}
         </div>
       )}
 
       {loading && (
         <div className="text-center py-12">
-          <div className="inline-block w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-400">Claude is writing personalized emails...</p>
+          <div className="inline-block w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-neutral-500 text-sm">Writing personalized emails...</p>
         </div>
       )}
 
       {result && !loading && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              {result.emails.length}-email sequence for {result.context.companyName}
-              {result.context.caseStudy && ` (referencing ${result.context.caseStudy})`}
-            </p>
-          </div>
+        <div className="space-y-3">
+          <p className="text-xs text-neutral-500">
+            {result.emails.length}-email sequence for {result.context.companyName}
+            {result.context.caseStudy && ` (ref: ${result.context.caseStudy})`}
+          </p>
 
           {result.emails.map((email, i) => (
-            <div key={i} className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2 bg-gray-800/50 border-b border-gray-800">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
-                    Email {email.sequencePosition}
+            <div key={i} className="bg-neutral-900 border border-neutral-800 rounded overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800">
+                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                  <span className="bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded text-[11px]">
+                    {email.sequencePosition}
                   </span>
-                  <span className="text-xs text-gray-500">{email.tone} &middot; {email.personaType}</span>
+                  <span>{email.tone} &middot; {email.personaType}</span>
                 </div>
                 <button
                   onClick={() => copyToClipboard(`Subject: ${email.subject}\n\n${email.body}`, i)}
-                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                  className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors"
                 >
                   {copiedIdx === i ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <div className="p-4">
-                <p className="text-sm font-medium text-gray-300 mb-2">Subject: {email.subject}</p>
-                <pre className="text-sm text-gray-400 whitespace-pre-wrap font-sans">{email.body}</pre>
+              <div className="p-3">
+                <p className="text-sm font-medium text-neutral-300 mb-1.5">Subject: {email.subject}</p>
+                <pre className="text-sm text-neutral-400 whitespace-pre-wrap font-sans leading-relaxed">{email.body}</pre>
               </div>
             </div>
           ))}
@@ -187,7 +186,7 @@ export default function Outreach() {
       )}
 
       {!selectedProspect && !loading && (
-        <div className="text-center py-16 text-gray-500">
+        <div className="text-center py-16 text-neutral-500 text-sm">
           {prospects.length === 0
             ? 'No prospects yet. Use Find Targets to discover companies first.'
             : 'Select a prospect above to generate outreach.'}
