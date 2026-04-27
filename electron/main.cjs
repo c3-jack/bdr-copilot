@@ -547,9 +547,63 @@ async function ensurePrerequisites() {
   return { claudeAuthenticated: finalClaude.authenticated };
 }
 
-function ensureMcps() {
+async function ensureDataverseMcp() {
+  // Download and install Ryan's Dataverse MCP binary if not already present
+  const fs = require('fs');
+  const https = require('https');
+  const { execFileSync } = require('child_process');
+  const installDir = path.join(process.env.HOME || '', 'c3ai-dataverse-mcp');
+  const binaryPath = path.join(installDir, 'c3ai-dataverse-mcp');
+
+  if (fs.existsSync(binaryPath)) return binaryPath; // already installed
+
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+  const assetName = `c3ai-dataverse-mcp-${arch}`;
+  const url = `https://github.com/c3-jack/bdr-copilot/releases/download/v0.2.0/${assetName}`;
+
+  return new Promise((resolve) => {
+    fs.mkdirSync(installDir, { recursive: true });
+    const tmpPath = path.join(installDir, `${assetName}.tmp`);
+    const file = fs.createWriteStream(tmpPath);
+
+    // Follow redirects (GitHub releases redirect to S3)
+    function download(downloadUrl) {
+      https.get(downloadUrl, { headers: { 'User-Agent': 'BDR-Copilot' } }, (res) => {
+        if (res.statusCode === 302 || res.statusCode === 301) {
+          download(res.headers.location);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          resolve(null);
+          return;
+        }
+        res.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          try {
+            fs.renameSync(tmpPath, binaryPath);
+            fs.chmodSync(binaryPath, 0o755);
+            // Remove macOS quarantine flag
+            try { execFileSync('xattr', ['-d', 'com.apple.quarantine', binaryPath]); } catch {}
+            resolve(binaryPath);
+          } catch {
+            resolve(null);
+          }
+        });
+      }).on('error', () => {
+        try { fs.unlinkSync(tmpPath); } catch {}
+        resolve(null);
+      });
+    }
+
+    download(url);
+  });
+}
+
+async function ensureMcps() {
   // Auto-install MCP servers on first run (non-blocking, best-effort)
   const claudePath = findClaudeBinary();
+  const fs = require('fs');
   const envWithPath = { ...process.env, PATH: getShellPath() };
 
   const mcps = [
@@ -557,6 +611,15 @@ function ensureMcps() {
     { name: 'atlassian', args: ['mcp', 'add', '--transport', 'http', '-s', 'user', 'atlassian', 'https://mcp.atlassian.com/v1/mcp'] },
     { name: 'github', args: ['mcp', 'add', '-s', 'user', 'github', '--', 'npx', '-y', '@modelcontextprotocol/server-github'] },
   ];
+
+  // Download + install Dataverse MCP binary, then register it
+  const dataverseBinary = await ensureDataverseMcp();
+  if (dataverseBinary) {
+    mcps.push({
+      name: 'c3ai-dataverse',
+      args: ['mcp', 'add', '-s', 'user', 'c3ai-dataverse', '--', dataverseBinary, 'https://c3ai.crm.dynamics.com'],
+    });
+  }
 
   for (const mcp of mcps) {
     try {

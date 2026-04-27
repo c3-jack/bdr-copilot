@@ -16,7 +16,7 @@ interface HomeStats {
     outreachTemplates: number;
   };
   prospects: number;
-  integrations: { zoominfo: boolean; dynamics: boolean; claude: boolean };
+  integrations: { zoominfo: boolean; dynamics: boolean; dataverse: boolean; claude: boolean };
   industries: string[];
   topUseCases: string[];
   preview: {
@@ -80,7 +80,8 @@ export default function Home() {
         <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Integrations</h3>
         <div className="bg-neutral-900 border border-neutral-800 rounded p-3 space-y-1.5">
           <Integration name="Claude Code" connected={stats?.integrations.claude ?? false} detail="Powers all AI features" />
-          <Integration name="Dynamics 365" connected={stats?.integrations.dynamics ?? false} detail="CRM accounts + pipeline" />
+          <Integration name="Dynamics 365 (Dataverse MCP)" connected={stats?.integrations.dataverse ?? false} detail="CRM via Ryan's Dataverse MCP — pipeline, accounts, forecasts" />
+          <Integration name="Dynamics 365 (API)" connected={stats?.integrations.dynamics ?? false} detail="Direct API — accounts + pipeline" />
           <Integration name="ZoomInfo" connected={stats?.integrations.zoominfo ?? false} detail="Company + contact enrichment" />
           <Integration name="SharePoint" connected detail="Via Claude MCP — search internal docs" alwaysOn />
           <Integration name="Confluence" connected detail="Via Claude MCP — search wiki pages" alwaysOn />

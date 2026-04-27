@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import {
   getWinPatterns,
   getIcpCriteria,
@@ -35,6 +38,7 @@ homeRouter.get('/stats', (_req, res) => {
     integrations: {
       zoominfo: ziConfigured(),
       dynamics: dynConfigured(),
+      dataverse: existsSync(join(homedir(), 'c3ai-dataverse-mcp', 'c3ai-dataverse-mcp')),
       claude: true,
     },
     industries: industries.map(i => i.name),
