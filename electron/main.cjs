@@ -2,10 +2,24 @@ const { app, BrowserWindow, dialog, shell } = require('electron');
 const { execFile, spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
+const fs = require('fs');
+const os = require('os');
 
 let mainWindow = null;
 let serverProcess = null;
 let serverPort = null;
+
+// Log everything to ~/.bdr-copilot/launch.log so we can debug remote installs
+const LOG_DIR = path.join(os.homedir(), '.bdr-copilot');
+const LOG_PATH = path.join(LOG_DIR, 'launch.log');
+try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+// Truncate on each launch — only care about the latest run
+try { fs.writeFileSync(LOG_PATH, `=== BDR Copilot launch ${new Date().toISOString()} ===\n`); } catch {}
+
+function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}`;
+  try { fs.appendFileSync(LOG_PATH, line + '\n'); } catch {}
+}
 
 function getFreePorts() {
   return new Promise((resolve, reject) => {
@@ -211,32 +225,42 @@ function showAuthFlow() {
 
 async function startBackendServer(port) {
   const serverScript = path.join(__dirname, '..', 'dist', 'server', 'index.js');
-  const fs = require('fs');
 
   // Find the real node binary (not Electron's)
   const nodePath = process.env.NODE_PATH_OVERRIDE || findNodeBinary();
   const resolvedPath = getShellPath();
+  const cwd = path.join(__dirname, '..');
+
+  log(`__dirname: ${__dirname}`);
+  log(`serverScript: ${serverScript}`);
+  log(`serverScript exists: ${fs.existsSync(serverScript)}`);
+  log(`nodePath: ${nodePath}`);
+  log(`nodePath exists: ${fs.existsSync(nodePath)}`);
+  log(`cwd: ${cwd}`);
+  log(`cwd exists: ${fs.existsSync(cwd)}`);
+  log(`cwd isDir: ${fs.existsSync(cwd) && fs.statSync(cwd).isDirectory()}`);
+  log(`port: ${port}`);
 
   // Validate the node binary before trying to spawn
   if (!fs.existsSync(nodePath)) {
-    throw new Error(
-      `Node binary not found at: ${nodePath}\n` +
-      `Searched PATH: ${resolvedPath.split(':').filter(p => p.includes('node') || p.includes('nvm') || p.includes('fnm') || p.includes('brew')).join(', ')}\n` +
-      `Fix: open Terminal and run: brew install node`
-    );
+    const msg = `Node binary not found at: ${nodePath}\nFix: open Terminal and run: brew install node`;
+    log(`FATAL: ${msg}`);
+    throw new Error(msg);
   }
 
   return new Promise((resolve, reject) => {
+    log(`spawning: ${nodePath} ${serverScript}`);
     serverProcess = spawn(nodePath, [serverScript], {
       env: { ...process.env, PORT: String(port), BDR_ELECTRON: '1', PATH: resolvedPath },
       stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: path.join(__dirname, '..'),
+      cwd,
     });
 
     let started = false;
 
     serverProcess.stdout.on('data', (data) => {
       const msg = data.toString();
+      log(`stdout: ${msg.trim()}`);
       if (msg.includes('running on') && !started) {
         started = true;
         resolve(port);
@@ -245,21 +269,25 @@ async function startBackendServer(port) {
 
     serverProcess.stderr.on('data', (data) => {
       const msg = data.toString();
+      log(`stderr: ${msg.trim()}`);
       if (!started && msg.includes('Error')) {
         reject(new Error(msg));
       }
     });
 
     serverProcess.on('error', (err) => {
+      log(`spawn error: ${err.message} (code: ${err.code})`);
       if (!started) reject(new Error(
         `spawn error: ${err.message}\n` +
         `Node path: ${nodePath}\n` +
         `Server script: ${serverScript}\n` +
+        `cwd: ${cwd}\n` +
         `Fix: open Terminal and run: brew install node`
       ));
     });
 
-    serverProcess.on('exit', (code) => {
+    serverProcess.on('exit', (code, signal) => {
+      log(`server exited: code=${code} signal=${signal}`);
       if (!started) reject(new Error(`Server exited with code ${code}`));
     });
 
@@ -667,8 +695,15 @@ async function ensureMcps() {
 }
 
 app.whenReady().then(async () => {
+  log(`app ready — version ${app.getVersion()}`);
+  log(`app path: ${app.getAppPath()}`);
+  log(`resourcesPath: ${process.resourcesPath}`);
+  log(`execPath: ${process.execPath}`);
+  log(`platform: ${process.platform} arch: ${process.arch}`);
+
   // Step 1: Ensure all prerequisites are installed (brew, node, claude)
   const prereqs = await ensurePrerequisites();
+  log(`prereqs: ${JSON.stringify(prereqs)}`);
   if (prereqs.failed) {
     app.quit();
     return;
@@ -689,7 +724,11 @@ app.whenReady().then(async () => {
     serverPort = await getFreePorts();
     await startBackendServer(serverPort);
   } catch (err) {
-    dialog.showErrorBox('Server Error', `Failed to start BDR Copilot server:\n${err.message}`);
+    log(`FATAL startup error: ${err.message}`);
+    dialog.showErrorBox('Server Error',
+      `Failed to start BDR Copilot server:\n${err.message}\n\n` +
+      `Send Jack this file:\n${LOG_PATH}`
+    );
     app.quit();
     return;
   }
