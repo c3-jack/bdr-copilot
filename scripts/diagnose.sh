@@ -1,90 +1,98 @@
 #!/bin/bash
-# BDR Copilot — Diagnostic Script
-# Run this in Terminal: bash ~/Downloads/diagnose.sh
-# Then paste the output to Jack
+# BDR Copilot — tell Jack what's broken
+# Open Terminal (Cmd+Space, type Terminal, hit Enter)
+# Then paste this and hit Enter:
+#   curl -sL https://raw.githubusercontent.com/c3-jack/bdr-copilot/main/scripts/diagnose.sh | bash
+# Copy everything it prints and Slack it to Jack.
 
-echo "=============================="
-echo " BDR Copilot Diagnostics"
-echo "=============================="
+echo ""
+echo "=== BDR Copilot Health Check ==="
 echo ""
 
-echo "--- System ---"
-echo "macOS: $(sw_vers -productVersion)"
-echo "Arch: $(uname -m)"
-echo "User: $(whoami)"
-echo "Home: $HOME"
-echo ""
+# System
+echo "Mac: $(sw_vers -productVersion) ($(uname -m))"
 
-echo "--- Node.js ---"
-echo "which node: $(which node 2>&1)"
-echo "node path type: $(file "$(which node 2>/dev/null)" 2>&1)"
-NODE_VERSION=$(node --version 2>&1)
-echo "node --version: $NODE_VERSION"
-echo ""
-
-echo "--- Node install method ---"
-# Check common install locations
-for p in /usr/local/bin/node /opt/homebrew/bin/node; do
-  [ -f "$p" ] && echo "FOUND: $p ($(file "$p"))" || echo "NOT FOUND: $p"
-done
-
-# NVM
-if [ -d "$HOME/.nvm" ]; then
-  echo "NVM dir: EXISTS"
-  NVM_VERSIONS=$(ls "$HOME/.nvm/versions/node/" 2>/dev/null)
-  echo "NVM versions: $NVM_VERSIONS"
-  [ -f "$HOME/.nvm/versions/node/${NVM_VERSIONS##*$'\n'}/bin/node" ] && echo "NVM node binary: FOUND"
+# App installed?
+if [ -d "/Applications/BDR Copilot.app" ]; then
+  echo "App: installed"
 else
-  echo "NVM: NOT INSTALLED"
+  echo "App: NOT INSTALLED — download from GitHub release"
 fi
 
-# fnm
-if [ -d "$HOME/.fnm" ] || [ -d "$HOME/Library/Application Support/fnm" ]; then
-  echo "fnm: EXISTS"
-  ls "$HOME/.fnm/current/bin/node" 2>/dev/null && echo "fnm node binary: FOUND"
-  ls "$HOME/Library/Application Support/fnm/current/bin/node" 2>/dev/null && echo "fnm node binary (alt): FOUND"
+# Node
+if command -v node &>/dev/null; then
+  echo "Node: $(node --version) ($(which node))"
 else
-  echo "fnm: NOT INSTALLED"
+  echo "Node: MISSING"
 fi
 
-# Volta
-if [ -d "$HOME/.volta" ]; then
-  echo "Volta: EXISTS"
-  [ -f "$HOME/.volta/bin/node" ] && echo "Volta node binary: FOUND"
+# Homebrew
+if command -v brew &>/dev/null || [ -f /opt/homebrew/bin/brew ] || [ -f /usr/local/bin/brew ]; then
+  echo "Brew: installed"
 else
-  echo "Volta: NOT INSTALLED"
+  echo "Brew: MISSING"
 fi
-echo ""
 
-echo "--- Homebrew ---"
-BREW_PATH=$(which brew 2>&1)
-echo "which brew: $BREW_PATH"
-[ -f /opt/homebrew/bin/brew ] && echo "/opt/homebrew/bin/brew: EXISTS" || echo "/opt/homebrew/bin/brew: NOT FOUND"
-[ -f /usr/local/bin/brew ] && echo "/usr/local/bin/brew: EXISTS" || echo "/usr/local/bin/brew: NOT FOUND"
-echo ""
+# Claude CLI
+if command -v claude &>/dev/null; then
+  CLAUDE_VER=$(claude --version 2>&1 | head -1)
+  echo "Claude CLI: $CLAUDE_VER"
 
-echo "--- Claude CLI ---"
-CLAUDE_PATH=$(which claude 2>&1)
-echo "which claude: $CLAUDE_PATH"
-for p in /usr/local/bin/claude /opt/homebrew/bin/claude "$HOME/.claude/local/claude" "$HOME/.npm-global/bin/claude"; do
-  [ -f "$p" ] && echo "FOUND: $p"
-done
-echo ""
+  # Auth check
+  AUTH_OUT=$(claude --print "say OK" 2>&1)
+  if echo "$AUTH_OUT" | grep -qi "ok"; then
+    echo "Claude auth: signed in"
+  else
+    echo "Claude auth: NOT SIGNED IN — run 'claude' in Terminal and log in"
+  fi
+else
+  # Check common locations the shell might miss
+  for p in /usr/local/bin/claude /opt/homebrew/bin/claude "$HOME/.claude/local/claude"; do
+    if [ -f "$p" ]; then
+      echo "Claude CLI: found at $p but not in PATH"
+      break
+    fi
+  done
+  if ! [ -f /usr/local/bin/claude ] && ! [ -f /opt/homebrew/bin/claude ] && ! [ -f "$HOME/.claude/local/claude" ]; then
+    echo "Claude CLI: MISSING — install from claude.ai/download"
+  fi
+fi
 
-echo "--- Dataverse MCP ---"
-[ -f "$HOME/c3ai-dataverse-mcp/c3ai-dataverse-mcp" ] && echo "Binary: FOUND" || echo "Binary: NOT FOUND"
-echo ""
+# Dataverse MCP
+if [ -f "$HOME/c3ai-dataverse-mcp/c3ai-dataverse-mcp" ]; then
+  echo "Dataverse MCP: installed"
+else
+  echo "Dataverse MCP: not installed (will auto-install on app launch)"
+fi
 
-echo "--- PATH ---"
-echo "$PATH" | tr ':' '\n'
-echo ""
+# MCP config
+if [ -f "$HOME/.claude.json" ]; then
+  if grep -q "c3ai-dataverse" "$HOME/.claude.json" 2>/dev/null; then
+    echo "MCP config: dataverse registered"
+  else
+    echo "MCP config: dataverse NOT registered"
+  fi
+else
+  echo "MCP config: no ~/.claude.json"
+fi
 
-echo "--- BDR Copilot App ---"
-APP_PATH="/Applications/BDR Copilot.app"
-[ -d "$APP_PATH" ] && echo "App: INSTALLED" || echo "App: NOT INSTALLED"
-[ -f "$APP_PATH/Contents/Resources/app/dist/server/index.js" ] && echo "Server bundle: FOUND" || echo "Server bundle: NOT FOUND"
-echo ""
+# Check if server can start
+if [ -f "/Applications/BDR Copilot.app/Contents/Resources/app/dist/server/index.js" ]; then
+  echo "Server bundle: present"
+else
+  echo "Server bundle: MISSING — app may be corrupted, re-download"
+fi
 
-echo "=============================="
-echo " Done — paste everything above"
-echo "=============================="
+# Quarantine flag
+if [ -d "/Applications/BDR Copilot.app" ]; then
+  QFLAG=$(xattr "/Applications/BDR Copilot.app" 2>/dev/null | grep -c quarantine)
+  if [ "$QFLAG" -gt 0 ]; then
+    echo "Gatekeeper: QUARANTINED — run: xattr -cr /Applications/BDR\\ Copilot.app"
+  else
+    echo "Gatekeeper: clear"
+  fi
+fi
+
+echo ""
+echo "=== Copy everything above and send to Jack ==="
+echo ""
