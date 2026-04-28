@@ -15,12 +15,6 @@ export interface AppConfig {
     clientId?: string;
     privateKey?: string;
   };
-  dynamics?: {
-    orgUrl?: string;
-    tenantId?: string;
-    clientId?: string;
-    clientSecret?: string;
-  };
 }
 
 function ensureDir(): void {
@@ -50,10 +44,6 @@ export function getConfigValue(key: string): string | undefined {
   switch (key) {
     case 'ZOOMINFO_CLIENT_ID': return config.zoominfo?.clientId;
     case 'ZOOMINFO_PRIVATE_KEY': return config.zoominfo?.privateKey;
-    case 'DYNAMICS_ORG_URL': return config.dynamics?.orgUrl;
-    case 'DYNAMICS_TENANT_ID': return config.dynamics?.tenantId;
-    case 'DYNAMICS_CLIENT_ID': return config.dynamics?.clientId;
-    case 'DYNAMICS_CLIENT_SECRET': return config.dynamics?.clientSecret;
     default: return undefined;
   }
 }

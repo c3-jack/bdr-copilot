@@ -12,7 +12,6 @@ import {
   getProspects,
 } from '../lib/db.js';
 import { isConfigured as ziConfigured } from '../lib/zoominfo.js';
-import { isConfigured as dynConfigured } from '../lib/dynamics.js';
 
 export const homeRouter = Router();
 
@@ -37,7 +36,6 @@ homeRouter.get('/stats', (_req, res) => {
     prospects: prospects.length,
     integrations: {
       zoominfo: ziConfigured(),
-      dynamics: dynConfigured(),
       dataverse: existsSync(join(homedir(), 'c3ai-dataverse-mcp', 'c3ai-dataverse-mcp')),
       claude: true,
     },

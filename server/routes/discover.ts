@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { askClaudeJSON } from '../lib/claude.js';
 import { scoreProspect } from '../lib/scoring.js';
 import { getWinPatterns, getIcpCriteria, getTargetIndustries, getCaseStudies, upsertProspect, getActiveProspectNames, logActivity } from '../lib/db.js';
-import * as dynamics from '../lib/dynamics.js';
 
 export const discoverRouter = Router();
 
@@ -49,20 +48,18 @@ discoverRouter.post('/', async (req, res) => {
 
     // Build exclusion list: companies already contacted or with active deals
     const activeNames = getActiveProspectNames();
-    let dynamicsNames = new Set<string>();
-    if (dynamics.isConfigured()) {
-      try {
-        const opps = await dynamics.getOpportunities({ openOnly: true, top: 100 });
-        const accts = await dynamics.getAccounts({ top: 100 });
-        const oppAccountIds = new Set(opps.map(o => o._parentaccountid_value).filter(Boolean));
-        for (const acct of accts) {
-          if (oppAccountIds.has(acct.accountid)) {
-            dynamicsNames.add(acct.name.toLowerCase());
-          }
-        }
-      } catch {
-        // Dynamics unavailable — skip filter
+    const dynamicsNames = new Set<string>();
+    try {
+      // Use Dataverse MCP to find accounts with open opportunities
+      const names = await askClaudeJSON<string[]>(
+        'Use the dataverse_sql tool to run: SELECT a.name FROM account a INNER JOIN opportunity o ON a.accountid = o._parentaccountid_value WHERE o.statecode = 0. Return ONLY a JSON array of company name strings.',
+        { systemPrompt: 'Execute the SQL query. Return a JSON array of strings only.', useDataverse: true }
+      );
+      for (const name of names) {
+        if (name && typeof name === 'string') dynamicsNames.add(name.toLowerCase());
       }
+    } catch {
+      // Dataverse MCP unavailable — skip CRM filter
     }
 
     const excludeList = [...new Set([...activeNames, ...dynamicsNames])];
@@ -199,13 +196,31 @@ Return a JSON array. Each object needs: company_name, industry, revenue_b, emplo
 Do NOT include ${companyName} itself. Only include real companies.
 `, { systemPrompt: 'You are a precise B2B sales intelligence analyst. Return valid JSON arrays only.' });
 
-    const scoredCompanies = companies.map(company => {
+    // Filter against existing pipeline
+    const existingNames = getActiveProspectNames();
+    const filtered = companies.filter(c => !existingNames.has(c.company_name.toLowerCase()));
+
+    const scoredCompanies = filtered.map(company => {
       const scoring = scoreProspect({
         industry: company.industry,
         revenue_b: company.revenue_b,
         hasAiInitiatives: company.signals.some(s => /ai|artificial intelligence/i.test(s)),
         hasCloudMigration: company.signals.some(s => /cloud/i.test(s)),
         hasNewCxoHire: company.signals.some(s => /cxo|cto|cio|hire/i.test(s)),
+      });
+
+      // Save to prospects table
+      upsertProspect({
+        company_name: company.company_name,
+        industry: company.industry,
+        revenue_b: company.revenue_b,
+        employee_count: company.employee_count,
+        headquarters: company.headquarters,
+        signals_json: JSON.stringify(company.signals),
+        similarity_score: scoring.score,
+        recommended_use_case: scoring.recommendedUseCase,
+        recommended_title: scoring.recommendedTitle,
+        status: 'new',
       });
 
       return { ...company, score: scoring.score, recommendedUseCase: scoring.recommendedUseCase, recommendedTitle: scoring.recommendedTitle };

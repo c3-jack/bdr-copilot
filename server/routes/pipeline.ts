@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { getProspects, getProspectById, getTargetIndustries, getWinPatterns, upsertProspect, logActivity, updateProspectStatusDb } from '../lib/db.js';
 import { scoreProspect } from '../lib/scoring.js';
 import * as zoominfo from '../lib/zoominfo.js';
-import * as dynamics from '../lib/dynamics.js';
 import { generateLinkedInLinks } from '../lib/linkedin.js';
+import { askClaudeJSON } from '../lib/claude.js';
 
 export const pipelineRouter = Router();
 
@@ -26,20 +26,51 @@ pipelineRouter.get('/ref/patterns', (_req, res) => {
   }
 });
 
-// Sync accounts from Dynamics 365 into local prospects
+// Sync accounts from Dynamics 365 via Dataverse MCP (browser auth, no credentials needed)
 pipelineRouter.post('/sync-dynamics', async (_req, res) => {
   try {
-    if (!dynamics.isConfigured()) {
-      res.status(400).json({ error: 'Dynamics 365 not configured. Add credentials in Settings.' });
-      return;
+    interface DataverseAccount {
+      accountid: string;
+      name: string;
+      revenue: number | null;
+      numberofemployees: number | null;
+      industrycode: number | null;
+      address1_city: string | null;
+      address1_stateorprovince: string | null;
+      address1_country: string | null;
     }
 
-    const accounts = await dynamics.getAccounts({ top: 50 });
+    const accounts = await askClaudeJSON<DataverseAccount[]>(`
+Use the dataverse_sql tool to run this SQL query against Dynamics 365:
 
-    // Dynamics industrycode mapping (common codes)
+SELECT TOP 50 accountid, name, revenue, numberofemployees, industrycode, address1_city, address1_stateorprovince, address1_country
+FROM account
+ORDER BY modifiedon DESC
+
+Return the results as a JSON array of objects. Each object should have these exact fields:
+accountid, name, revenue, numberofemployees, industrycode, address1_city, address1_stateorprovince, address1_country
+
+If the query returns no results, return an empty array [].
+`, {
+      systemPrompt: 'You are a data extraction tool. Execute the SQL query using the dataverse_sql tool, then return the raw results as a JSON array. No commentary.',
+      useDataverse: true,
+    });
+
+    // Dynamics industrycode mapping (Dynamics 365 OptionSet values)
     const INDUSTRY_MAP: Record<number, string> = {
-      1: 'Financial Services', 2: 'Manufacturing', 3: 'Retail',
-      6: 'Energy', 7: 'Defense', 12: 'Pharma', 33: 'Chemicals', 35: 'Aerospace',
+      1: 'Accounting', 2: 'Agriculture', 3: 'Broadcasting & Entertainment',
+      4: 'Brokers', 5: 'Building Supply & Retail', 6: 'Business Services',
+      7: 'Consulting', 8: 'Consumer Services', 9: 'Design & Creative',
+      10: 'Distributors & Dispatchers', 11: 'Insurance', 12: 'Financial Services',
+      13: 'Food & Tobacco', 14: 'IT Services', 15: 'Healthcare',
+      16: 'Legal', 17: 'Manufacturing', 18: 'Media & Entertainment',
+      19: 'Mining', 20: 'Non-Profit', 21: 'Recreation',
+      22: 'Retail', 23: 'Government', 24: 'Telecommunications',
+      25: 'Transportation', 26: 'Utilities', 27: 'Vehicle Retail',
+      28: 'Wholesale', 29: 'Chemicals', 30: 'Construction',
+      31: 'Education', 32: 'Engineering', 33: 'Energy',
+      // Additional codes used by C3's Dynamics instance
+      100000: 'Defense', 100001: 'Aerospace', 100002: 'Pharma',
     };
 
     let synced = 0;

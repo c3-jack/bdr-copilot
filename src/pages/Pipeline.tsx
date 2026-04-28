@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getPipeline, updateProspectStatus, getContacts, enrichProspect, syncDynamics, type Prospect, type ZiContactWithLinks, type ZiCompany, type ZiIntent, type LinkedInLinks } from '../lib/api';
 import SignalBadge from '../components/SignalBadge';
 
@@ -27,6 +28,7 @@ interface EnrichmentData {
 }
 
 export default function Pipeline() {
+  const navigate = useNavigate();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -37,6 +39,7 @@ export default function Pipeline() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     loadProspects();
@@ -105,7 +108,11 @@ export default function Pipeline() {
     }
   }
 
-  const sorted = [...prospects].sort((a, b) => {
+  const filtered = search
+    ? prospects.filter(p => p.company_name.toLowerCase().includes(search.toLowerCase()))
+    : prospects;
+
+  const sorted = [...filtered].sort((a, b) => {
     if (sortBy === 'score') return (b.score ?? 0) - (a.score ?? 0);
     if (sortBy === 'date') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     return a.company_name.localeCompare(b.company_name);
@@ -128,20 +135,29 @@ export default function Pipeline() {
       </div>
 
       <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1.5">
-          {STATUS_FILTERS.map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`px-2.5 py-1 text-xs rounded transition-colors capitalize ${
-                filter === s
-                  ? 'bg-neutral-100 text-neutral-900 font-medium'
-                  : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search companies..."
+            className="px-2.5 py-1 text-xs bg-neutral-900 border border-neutral-800 rounded text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600 w-40"
+          />
+          <div className="flex gap-1.5">
+            {STATUS_FILTERS.map(s => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`px-2.5 py-1 text-xs rounded transition-colors capitalize ${
+                  filter === s
+                    ? 'bg-neutral-100 text-neutral-900 font-medium'
+                    : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-neutral-600">Sort:</span>
@@ -223,7 +239,7 @@ export default function Pipeline() {
                       )}
                     </div>
                     <p className="text-xs text-neutral-500 mb-1.5">
-                      {prospect.industry} &middot; ${prospect.revenue_b}B
+                      {prospect.industry}{prospect.revenue_b != null && ` · $${prospect.revenue_b}B`}
                       {prospect.recommended_use_case && (
                         <> &middot; <span className="text-neutral-400">{prospect.recommended_use_case}</span></>
                       )}
@@ -243,6 +259,12 @@ export default function Pipeline() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 ml-4">
+                    <button
+                      onClick={() => navigate(`/outreach?prospectId=${prospect.id}`)}
+                      className="text-xs px-2 py-1 rounded text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 transition-colors"
+                    >
+                      Outreach
+                    </button>
                     <button
                       onClick={() => handleExpand(prospect)}
                       className={`text-xs px-2 py-1 rounded transition-colors ${

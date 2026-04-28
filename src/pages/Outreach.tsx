@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getPipeline, generateOutreach, type Prospect, type OutreachResult } from '../lib/api';
+import { useSearchParams } from 'react-router-dom';
+import { getPipeline, generateOutreach, getDrafts as fetchDrafts, type Prospect, type OutreachResult, type Draft } from '../lib/api';
 
 const TONES = [
   { value: 'executive', label: 'Executive' },
@@ -7,20 +8,54 @@ const TONES = [
   { value: 'technical', label: 'Technical' },
 ];
 
+interface EditableEmail {
+  subject: string;
+  body: string;
+  sequencePosition: number;
+  tone: string;
+  personaType: string;
+  templateBasis: string;
+}
+
 export default function Outreach() {
+  const [searchParams] = useSearchParams();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [tone, setTone] = useState('executive');
   const [sequenceLength, setSequenceLength] = useState(3);
   const [customContext, setCustomContext] = useState('');
+  const [targetTitle, setTargetTitle] = useState('');
+  const [senderName, setSenderName] = useState('');
   const [result, setResult] = useState<OutreachResult | null>(null);
+  const [editedEmails, setEditedEmails] = useState<EditableEmail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [savedDrafts, setSavedDrafts] = useState<Draft[]>([]);
+  const [showSaved, setShowSaved] = useState(false);
 
   useEffect(() => {
-    getPipeline().then(r => setProspects(r.prospects)).catch(() => {});
-  }, []);
+    getPipeline().then(r => {
+      setProspects(r.prospects);
+      // Auto-select prospect from query param (e.g., from Pipeline "Outreach" button)
+      const qId = searchParams.get('prospectId');
+      if (qId && !selectedProspect) {
+        const match = r.prospects.find(p => p.id === Number(qId));
+        if (match) {
+          setSelectedProspect(match);
+          setTargetTitle(match.recommended_title ?? match.recommendedTitle ?? '');
+        }
+      }
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (selectedProspect) {
+      fetchDrafts(selectedProspect.id).then(r => setSavedDrafts(r.drafts)).catch(() => setSavedDrafts([]));
+    } else {
+      setSavedDrafts([]);
+    }
+  }, [selectedProspect]);
 
   async function handleGenerate() {
     if (!selectedProspect) return;
@@ -28,15 +63,24 @@ export default function Outreach() {
     setLoading(true);
     setError('');
     setResult(null);
+    setEditedEmails([]);
 
     try {
       const res = await generateOutreach({
         prospectId: selectedProspect.id,
+        targetTitle: targetTitle || undefined,
         tone,
         sequenceLength,
         customContext: customContext || undefined,
       });
       setResult(res);
+      // Replace {{sender_name}} placeholder and make editable copies
+      const name = senderName || '{{sender_name}}';
+      setEditedEmails(res.emails.map(e => ({
+        ...e,
+        body: e.body.replace(/\{\{sender_name\}\}/g, name),
+        subject: e.subject.replace(/\{\{sender_name\}\}/g, name),
+      })));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -44,8 +88,13 @@ export default function Outreach() {
     }
   }
 
-  function copyToClipboard(text: string, idx: number) {
-    navigator.clipboard.writeText(text);
+  function updateEmail(idx: number, field: 'subject' | 'body', value: string) {
+    setEditedEmails(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  }
+
+  function copyToClipboard(idx: number) {
+    const email = editedEmails[idx];
+    navigator.clipboard.writeText(email.body);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 2000);
   }
@@ -57,7 +106,7 @@ export default function Outreach() {
         Generate personalized email sequences from research and win patterns.
       </p>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-xs text-neutral-500 mb-1">Company</label>
           <select
@@ -65,6 +114,7 @@ export default function Outreach() {
             onChange={e => {
               const p = prospects.find(p => p.id === Number(e.target.value));
               setSelectedProspect(p ?? null);
+              if (p) setTargetTitle(p.recommended_title ?? p.recommendedTitle ?? '');
             }}
             className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-300 focus:outline-none focus:border-neutral-600"
           >
@@ -75,6 +125,30 @@ export default function Outreach() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-neutral-500 mb-1">Target Title</label>
+          <input
+            type="text"
+            value={targetTitle}
+            onChange={e => setTargetTitle(e.target.value)}
+            placeholder="e.g., VP Supply Chain"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="block text-xs text-neutral-500 mb-1">Your Name</label>
+          <input
+            type="text"
+            value={senderName}
+            onChange={e => setSenderName(e.target.value)}
+            placeholder="e.g., Jack Homer"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+          />
         </div>
 
         <div>
@@ -110,7 +184,7 @@ export default function Outreach() {
             <div>
               <span className="text-neutral-200 font-medium">{selectedProspect.company_name}</span>
               <span className="text-neutral-500 ml-2 text-xs">
-                {selectedProspect.industry} &middot; ${selectedProspect.revenue_b}B
+                {selectedProspect.industry}{selectedProspect.revenue_b != null && ` · $${selectedProspect.revenue_b}B`}
               </span>
             </div>
             <div className="text-xs text-neutral-500">
@@ -153,14 +227,14 @@ export default function Outreach() {
         </div>
       )}
 
-      {result && !loading && (
+      {result && !loading && editedEmails.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs text-neutral-500">
-            {result.emails.length}-email sequence for {result.context.companyName}
+            {editedEmails.length}-email sequence for {result.context.companyName}
             {result.context.caseStudy && ` (ref: ${result.context.caseStudy})`}
           </p>
 
-          {result.emails.map((email, i) => (
+          {editedEmails.map((email, i) => (
             <div key={i} className="bg-neutral-900 border border-neutral-800 rounded overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800">
                 <div className="flex items-center gap-2 text-xs text-neutral-500">
@@ -169,16 +243,38 @@ export default function Outreach() {
                   </span>
                   <span>{email.tone} &middot; {email.personaType}</span>
                 </div>
-                <button
-                  onClick={() => copyToClipboard(`Subject: ${email.subject}\n\n${email.body}`, i)}
-                  className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors"
-                >
-                  {copiedIdx === i ? 'Copied' : 'Copy'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(email.subject);
+                      setCopiedIdx(i * 100);
+                      setTimeout(() => setCopiedIdx(null), 2000);
+                    }}
+                    className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors"
+                  >
+                    {copiedIdx === i * 100 ? 'Copied' : 'Copy Subject'}
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(i)}
+                    className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors"
+                  >
+                    {copiedIdx === i ? 'Copied' : 'Copy Body'}
+                  </button>
+                </div>
               </div>
               <div className="p-3">
-                <p className="text-sm font-medium text-neutral-300 mb-1.5">Subject: {email.subject}</p>
-                <pre className="text-sm text-neutral-400 whitespace-pre-wrap font-sans leading-relaxed">{email.body}</pre>
+                <input
+                  type="text"
+                  value={email.subject}
+                  onChange={e => updateEmail(i, 'subject', e.target.value)}
+                  className="w-full text-sm font-medium text-neutral-200 bg-transparent border-b border-neutral-800 pb-1.5 mb-2 focus:outline-none focus:border-neutral-600"
+                />
+                <textarea
+                  value={email.body}
+                  onChange={e => updateEmail(i, 'body', e.target.value)}
+                  rows={8}
+                  className="w-full text-sm text-neutral-300 bg-transparent font-sans leading-relaxed resize-none focus:outline-none"
+                />
               </div>
             </div>
           ))}
@@ -199,6 +295,32 @@ export default function Outreach() {
           </p>
         </div>
       )}
+      {savedDrafts.length > 0 && !loading && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowSaved(!showSaved)}
+            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors mb-2"
+          >
+            {showSaved ? 'Hide' : 'Show'} previous drafts ({savedDrafts.length})
+          </button>
+          {showSaved && (
+            <div className="space-y-2">
+              {savedDrafts.map((draft, i) => (
+                <div key={draft.id ?? i} className="bg-neutral-900/50 border border-neutral-800/50 rounded p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-neutral-400 font-medium">{draft.subject}</span>
+                    <span className="text-[11px] text-neutral-600">
+                      {new Date(draft.created_at).toLocaleDateString()} &middot; {draft.tone}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 whitespace-pre-line line-clamp-3">{draft.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {!selectedProspect && !loading && prospects.length > 0 && (
         <div className="text-center py-16 text-neutral-500 text-sm">
           Select a prospect above to generate outreach.

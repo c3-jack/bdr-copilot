@@ -1,6 +1,10 @@
 import { Router } from 'express';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import { loadConfig, saveConfig, resolve } from '../lib/config.js';
 import { execFile } from 'child_process';
+import { askClaude, findClaudeBinary, getEnhancedEnv } from '../lib/claude.js';
 
 export const settingsRouter = Router();
 
@@ -14,10 +18,6 @@ function mask(value?: string): string {
 settingsRouter.get('/', (_req, res) => {
   const config = loadConfig();
   const ziConfigured = Boolean(resolve('ZOOMINFO_CLIENT_ID') && resolve('ZOOMINFO_PRIVATE_KEY'));
-  const dynamicsConfigured = Boolean(
-    resolve('DYNAMICS_ORG_URL') && resolve('DYNAMICS_TENANT_ID') &&
-    resolve('DYNAMICS_CLIENT_ID') && resolve('DYNAMICS_CLIENT_SECRET')
-  );
 
   res.json({
     zoominfo: {
@@ -25,9 +25,8 @@ settingsRouter.get('/', (_req, res) => {
       clientId: mask(resolve('ZOOMINFO_CLIENT_ID')),
       hasPrivateKey: Boolean(resolve('ZOOMINFO_PRIVATE_KEY')),
     },
-    dynamics: {
-      configured: dynamicsConfigured,
-      orgUrl: resolve('DYNAMICS_ORG_URL') ?? '',
+    dataverse: {
+      installed: existsSync(join(homedir(), 'c3ai-dataverse-mcp', 'c3ai-dataverse-mcp')),
     },
     linkedin: {
       configured: true,
@@ -37,33 +36,19 @@ settingsRouter.get('/', (_req, res) => {
         clientId: config.zoominfo?.clientId ?? '',
         privateKey: config.zoominfo?.privateKey ?? '',
       },
-      dynamics: {
-        orgUrl: config.dynamics?.orgUrl ?? '',
-        tenantId: config.dynamics?.tenantId ?? '',
-        clientId: config.dynamics?.clientId ?? '',
-        clientSecret: config.dynamics?.clientSecret ?? '',
-      },
     },
   });
 });
 
 // PUT /api/settings — save config
 settingsRouter.put('/', (req, res) => {
-  const { zoominfo, dynamics } = req.body;
+  const { zoominfo } = req.body;
   const config = loadConfig();
 
   if (zoominfo) {
     config.zoominfo = {
       clientId: zoominfo.clientId || undefined,
       privateKey: zoominfo.privateKey || undefined,
-    };
-  }
-  if (dynamics) {
-    config.dynamics = {
-      orgUrl: dynamics.orgUrl || undefined,
-      tenantId: dynamics.tenantId || undefined,
-      clientId: dynamics.clientId || undefined,
-      clientSecret: dynamics.clientSecret || undefined,
     };
   }
 
@@ -99,49 +84,18 @@ settingsRouter.post('/test-zoominfo', async (_req, res) => {
   }
 });
 
-// POST /api/settings/test-dynamics — test Dynamics 365 connection
+// POST /api/settings/test-dynamics — test Dataverse MCP connection
 settingsRouter.post('/test-dynamics', async (_req, res) => {
-  const orgUrl = resolve('DYNAMICS_ORG_URL');
-  const tenantId = resolve('DYNAMICS_TENANT_ID');
-  const clientId = resolve('DYNAMICS_CLIENT_ID');
-  const clientSecret = resolve('DYNAMICS_CLIENT_SECRET');
-
-  if (!orgUrl || !tenantId || !clientId || !clientSecret) {
-    res.json({ ok: false, error: 'Not all credentials configured' });
-    return;
-  }
-
   try {
-    // Get OAuth2 token from Azure AD
-    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-    const tokenResp = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        scope: `${orgUrl}/.default`,
-        grant_type: 'client_credentials',
-      }),
-    });
-
-    if (!tokenResp.ok) {
-      const text = await tokenResp.text();
-      res.json({ ok: false, error: `Azure AD auth failed (${tokenResp.status}): ${text.slice(0, 200)}` });
-      return;
-    }
-
-    const tokenData = await tokenResp.json() as { access_token: string };
-
-    // Test the token by hitting WhoAmI
-    const whoAmI = await fetch(`${orgUrl}/api/data/v9.2/WhoAmI`, {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    });
-
-    if (whoAmI.ok) {
-      res.json({ ok: true });
+    const result = await askClaude(
+      'Use the dataverse_whoami tool to check the connection. Reply with just the user display name or "connected" if it works.',
+      { systemPrompt: 'Execute the whoami tool and report the result briefly.', useDataverse: true }
+    );
+    const text = result.text.trim();
+    if (text.length > 0) {
+      res.json({ ok: true, user: text });
     } else {
-      res.json({ ok: false, error: `Connected to Azure AD but Dataverse returned ${whoAmI.status}` });
+      res.json({ ok: false, error: 'No response from Dataverse MCP' });
     }
   } catch (err) {
     res.json({ ok: false, error: (err as Error).message });
@@ -150,13 +104,15 @@ settingsRouter.post('/test-dynamics', async (_req, res) => {
 
 // GET /api/settings/test-claude — test Claude CLI auth
 settingsRouter.get('/test-claude', (_req, res) => {
-  execFile('claude', ['--version'], { timeout: 5000 }, (err, stdout) => {
+  const claudeBin = findClaudeBinary();
+  const env = getEnhancedEnv();
+  execFile(claudeBin, ['--version'], { timeout: 5000, env }, (err, stdout) => {
     if (err) {
       res.json({ installed: false, authenticated: false });
       return;
     }
     const version = stdout.trim();
-    execFile('claude', ['--print', 'respond with OK'], { timeout: 15000 }, (authErr) => {
+    execFile(claudeBin, ['--print', 'respond with OK'], { timeout: 15000, env }, (authErr) => {
       res.json({
         installed: true,
         authenticated: !authErr,

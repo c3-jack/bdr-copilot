@@ -1,15 +1,30 @@
 const BASE = '/api';
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? `Request failed: ${res.status}`);
+async function request<T>(path: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
+  const { timeoutMs, ...fetchOpts } = options ?? {};
+  const controller = new AbortController();
+  const timeout = timeoutMs ?? 120_000; // default 2 min
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      ...fetchOpts,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error ?? `Request failed: ${res.status}`);
+    }
+    return res.json();
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      throw new Error('Request timed out. The AI might still be working — try again in a moment.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 // Discover
@@ -17,6 +32,7 @@ export function discoverCompanies(query: string, industry?: string, minRevenue?:
   return request<{ companies: ScoredCompany[]; searchAnswer?: string; excluded?: number; excludedReason?: string }>('/discover', {
     method: 'POST',
     body: JSON.stringify({ query, industry, minRevenue }),
+    timeoutMs: 180_000, // AI-powered, can take 60s+
   });
 }
 
@@ -29,7 +45,7 @@ export function findSimilar(companyName: string) {
 
 // Research
 export function deepResearch(prospectId: number) {
-  return request<ResearchResult>(`/research/${prospectId}`, { method: 'POST' });
+  return request<ResearchResult>(`/research/${prospectId}`, { method: 'POST', timeoutMs: 180_000 });
 }
 
 // Outreach
@@ -43,6 +59,7 @@ export function generateOutreach(params: {
   return request<OutreachResult>('/outreach/generate', {
     method: 'POST',
     body: JSON.stringify(params),
+    timeoutMs: 180_000, // AI-powered
   });
 }
 
@@ -76,6 +93,7 @@ export function getIndustries() {
 export function syncDynamics() {
   return request<{ synced: number; total: number }>('/pipeline/sync-dynamics', {
     method: 'POST',
+    timeoutMs: 180_000, // Dataverse MCP may need browser auth
   });
 }
 

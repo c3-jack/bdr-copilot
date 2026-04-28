@@ -6,6 +6,8 @@ interface Props {
   onResearch?: () => void;
   onOutreach?: () => void;
   onFindSimilar?: () => void;
+  onAddToPipeline?: () => void;
+  addedToPipeline?: boolean;
 }
 
 function scoreColor(score: number): string {
@@ -23,7 +25,7 @@ function salesNavUrl(name: string): string {
   return `https://www.linkedin.com/sales/search/people?query=${encodeURIComponent(name)}`;
 }
 
-export default function CompanyCard({ company, onResearch, onOutreach, onFindSimilar }: Props) {
+export default function CompanyCard({ company, onResearch, onOutreach, onFindSimilar, onAddToPipeline, addedToPipeline }: Props) {
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded p-4 hover:border-neutral-700 transition-colors">
       <div className="flex items-start justify-between mb-2">
@@ -48,7 +50,7 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
             </a>
           </div>
           <p className="text-xs text-neutral-500 mt-0.5">
-            {company.industry} &middot; ${company.revenue_b}B
+            {company.industry}{company.revenue_b != null && ` · $${company.revenue_b}B`}
             {company.headquarters && ` &middot; ${company.headquarters}`}
             {company.employee_count && ` &middot; ${company.employee_count.toLocaleString()} emp`}
           </p>
@@ -65,6 +67,10 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
           <SignalBadge key={i} signal={signal} />
         ))}
       </div>
+
+      {company.ai_posture && (
+        <p className="text-xs text-neutral-500 italic mb-2">{company.ai_posture}</p>
+      )}
 
       <div className="bg-neutral-800/50 rounded p-2.5 mb-3 text-xs">
         <div className="flex gap-6">
@@ -106,6 +112,17 @@ export default function CompanyCard({ company, onResearch, onOutreach, onFindSim
           >
             Find Similar
           </button>
+        )}
+        {onAddToPipeline && !addedToPipeline && (
+          <button
+            onClick={onAddToPipeline}
+            className="px-3 py-1 text-xs bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400 rounded transition-colors"
+          >
+            + Pipeline
+          </button>
+        )}
+        {addedToPipeline && (
+          <span className="px-3 py-1 text-xs text-emerald-500">In Pipeline</span>
         )}
       </div>
     </div>

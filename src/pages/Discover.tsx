@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CompanyCard from '../components/CompanyCard';
-import { discoverCompanies, findSimilar, type ScoredCompany } from '../lib/api';
+import { discoverCompanies, findSimilar, deepResearch, type ScoredCompany } from '../lib/api';
 
 const INDUSTRIES = [
   'All Industries',
@@ -17,6 +18,7 @@ const INDUSTRIES = [
 ];
 
 export default function Discover() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [industry, setIndustry] = useState('All Industries');
   const [companies, setCompanies] = useState<ScoredCompany[]>([]);
@@ -24,6 +26,8 @@ export default function Discover() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [excludedMsg, setExcludedMsg] = useState('');
+  const [researchingIdx, setResearchingIdx] = useState<number | null>(null);
+  const [addedSet, setAddedSet] = useState<Set<number>>(new Set());
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -131,7 +135,40 @@ export default function Discover() {
             <CompanyCard
               key={i}
               company={company}
+              onResearch={researchingIdx === i ? undefined : () => {
+                setResearchingIdx(i);
+                // The company is already saved to prospects by the discover endpoint.
+                // Find its prospect ID from the pipeline and trigger deep research.
+                // For now, navigate to pipeline where they can research it.
+                // TODO: direct research from discover
+                fetch(`${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/pipeline`)
+                  .then(r => r.json())
+                  .then((data: { prospects: Array<{ id: number; company_name: string }> }) => {
+                    const match = data.prospects.find(
+                      p => p.company_name.toLowerCase() === company.company_name.toLowerCase()
+                    );
+                    if (match) {
+                      deepResearch(match.id).then(() => {
+                        setResearchingIdx(null);
+                        navigate(`/pipeline`);
+                      }).catch(() => setResearchingIdx(null));
+                    } else {
+                      setResearchingIdx(null);
+                      navigate('/pipeline');
+                    }
+                  })
+                  .catch(() => setResearchingIdx(null));
+              }}
+              onOutreach={() => {
+                // Navigate to outreach — the prospect is already saved by discover endpoint
+                navigate('/outreach');
+              }}
               onFindSimilar={() => handleFindSimilar(company.company_name)}
+              addedToPipeline={addedSet.has(i)}
+              onAddToPipeline={() => {
+                // Companies are auto-saved by the discover endpoint — this just confirms it visually
+                setAddedSet(prev => new Set(prev).add(i));
+              }}
             />
           ))}
         </div>

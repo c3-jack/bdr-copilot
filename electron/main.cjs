@@ -697,6 +697,16 @@ app.whenReady().then(async () => {
   // Step 4: Open main window
   mainWindow = createMainWindow(serverPort);
 
+  // Watch for server crash after startup — show error instead of blank window
+  serverProcess.on('exit', (code, signal) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const reason = signal ? `killed by ${signal}` : `exited with code ${code}`;
+      dialog.showErrorBox('Server Crashed', `The backend server ${reason}. The app will restart.`);
+      app.relaunch();
+      app.quit();
+    }
+  });
+
   if (!prereqs.claudeAuthenticated) {
     mainWindow.webContents.once('did-finish-load', () => {
       mainWindow.webContents.executeJavaScript(`

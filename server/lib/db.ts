@@ -163,12 +163,15 @@ export function upsertProspect(prospect: {
     `INSERT INTO prospects (company_name, industry, revenue_b, employee_count, headquarters, signals_json, similarity_score, recommended_use_case, recommended_title, dynamics_account_id, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(company_name) DO UPDATE SET
-      industry = excluded.industry,
-      revenue_b = excluded.revenue_b,
-      signals_json = excluded.signals_json,
-      similarity_score = excluded.similarity_score,
-      recommended_use_case = excluded.recommended_use_case,
-      recommended_title = excluded.recommended_title,
+      industry = COALESCE(excluded.industry, prospects.industry),
+      revenue_b = COALESCE(excluded.revenue_b, prospects.revenue_b),
+      employee_count = COALESCE(excluded.employee_count, prospects.employee_count),
+      headquarters = COALESCE(excluded.headquarters, prospects.headquarters),
+      signals_json = COALESCE(excluded.signals_json, prospects.signals_json),
+      similarity_score = COALESCE(excluded.similarity_score, prospects.similarity_score),
+      recommended_use_case = COALESCE(excluded.recommended_use_case, prospects.recommended_use_case),
+      recommended_title = COALESCE(excluded.recommended_title, prospects.recommended_title),
+      dynamics_account_id = COALESCE(excluded.dynamics_account_id, prospects.dynamics_account_id),
       updated_at = CURRENT_TIMESTAMP`,
     [
       prospect.company_name,

@@ -65,8 +65,12 @@ outreachRouter.post('/generate', async (req, res) => {
     // Find best case study (prefer public ones)
     const bestCaseStudy = caseStudies.find(cs => cs.is_public) ?? caseStudies[0];
 
-    // Find matching persona
-    const matchingPersona = personas.find(p => (p.title_pattern as string) === title);
+    // Find matching persona (fuzzy — check if title contains the pattern or vice versa)
+    const titleLower = (title ?? '').toLowerCase();
+    const matchingPersona = personas.find(p => {
+      const pattern = (p.title_pattern as string).toLowerCase();
+      return pattern === titleLower || titleLower.includes(pattern) || pattern.includes(titleLower);
+    });
 
     const personaType = matchingPersona
       ? (matchingPersona.seniority === 'C-Suite' ? 'executive' : matchingPersona.seniority === 'VP' ? 'executive' : 'practitioner')

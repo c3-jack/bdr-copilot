@@ -31,7 +31,7 @@ INSERT INTO icp_criteria (name, min_revenue_b, target_industries, qualifying_sig
 ('Core ICP', 10.0,
   '["Manufacturing", "Energy", "Financial Services", "Defense", "Aerospace"]',
   '["AI/ML job postings", "Earnings call mentions of AI/predictive analytics", "Cloud migration announced", "New CIO/CTO hire", "Digital transformation initiative", "Regulatory pressure requiring analytics", "Large asset base requiring monitoring"]',
-  '["Bankruptcy/restructuring", "Active C3 competitor deployment", "No cloud infrastructure", "Sub $5B revenue with no growth trajectory"]',
+  '["Bankruptcy/restructuring", "Active C3 competitor deployment", "No cloud infrastructure", "Sub $10B revenue with no growth trajectory"]',
   1),
 ('Stretch ICP', 5.0,
   '["Retail", "Pharma", "Chemicals", "Telecom", "Transportation", "Mining"]',
@@ -67,7 +67,7 @@ INSERT INTO personas (use_case, title_pattern, seniority, department, conversion
 
 INSERT INTO case_studies (customer_name, industry, use_case, value_delivered, is_public, summary) VALUES
 ('Baker Hughes', 'Energy', 'Asset Performance Management', '$100M+ in avoided downtime', 1, 'Deployed C3 AI Reliability across 60,000+ pieces of rotating equipment. Predicts failures 30 days in advance.'),
-('Shell', 'Energy', 'Predictive Maintenance', '$1.6B in identified savings', 1, 'AI-driven predictive maintenance across global operations, identifying equipment failures before they occur.'),
+('Shell', 'Energy', 'Predictive Maintenance', 'Significant operational savings', 1, 'AI-driven predictive maintenance across global operations, identifying equipment failures before they occur.'),
 ('US Air Force', 'Defense', 'Readiness Optimization', 'Improved aircraft readiness rates', 1, 'Predictive maintenance for military aircraft, reducing unplanned downtime and improving mission readiness.'),
 ('Koch Industries', 'Manufacturing', 'Asset Performance Management', '$100M+ economic value', 1, 'Enterprise-scale APM deployment across manufacturing facilities.'),
 ('Engie', 'Energy', 'Grid Analytics', 'Improved grid reliability', 1, 'AI-powered grid analytics for one of the worlds largest utility companies.'),
@@ -76,8 +76,7 @@ INSERT INTO case_studies (customer_name, industry, use_case, value_delivered, is
 ('Con Edison', 'Energy', 'Asset Performance Management', 'Reduced outage rates', 1, 'Predictive analytics for electric grid equipment, improving reliability for millions of customers.'),
 ('Raytheon', 'Defense', 'Predictive Logistics', 'Improved parts availability', 0, 'Predictive logistics and readiness for defense systems.'),
 ('GSK', 'Pharma', 'Supply Chain Visibility', 'Manufacturing optimization', 0, 'AI-powered supply chain and manufacturing analytics for pharmaceutical operations.'),
-('Flex', 'Manufacturing', 'Production Schedule Optimization', 'Production efficiency gains', 0, 'PSO deployment for electronics manufacturing.'),
-('Gategroup', 'Manufacturing', 'Production Schedule Optimization', 'Catering production optimization', 0, 'Airline catering production scheduling optimization.');
+('Flex', 'Manufacturing', 'Production Schedule Optimization', 'Production efficiency gains', 0, 'PSO deployment for electronics manufacturing.');
 
 -- ============================================================
 -- OUTREACH TEMPLATES
@@ -186,7 +185,7 @@ INSERT INTO target_industries (name, c3_products, key_use_cases, typical_champio
   '["Predictive Maintenance", "Grid Analytics", "Asset Performance Management", "Energy Trading Optimization"]',
   '["VP Asset Management", "VP Grid Operations", "Director of Reliability", "CTO"]',
   'Strong regulatory tailwinds. Grid modernization driving investment.'),
-('Financial Services', '["C3 AI AML", "C3 AI Fraud", "C3 AI CRM"]',
+('Financial Services', '["C3 AI AML", "C3 AI Fraud"]',
   '["Anti-Money Laundering", "Fraud Detection", "Customer Analytics", "Credit Risk"]',
   '["Chief Compliance Officer", "VP Risk", "CIO", "VP Data Analytics"]',
   'High TCV, long cycles. Compliance-driven urgency.'),
@@ -194,7 +193,7 @@ INSERT INTO target_industries (name, c3_products, key_use_cases, typical_champio
   '["Readiness Optimization", "Predictive Logistics", "Condition-Based Maintenance"]',
   '["Program Manager", "Logistics Director", "Deputy CIO"]',
   'Federal acquisition process. Requires contract vehicles. Longest cycle.'),
-('Retail', '["C3 AI Inventory Optimization", "C3 AI Supply Chain", "C3 AI CRM"]',
+('Retail', '["C3 AI Inventory Optimization", "C3 AI Supply Chain"]',
   '["Inventory Optimization", "Demand Forecasting", "Customer Analytics"]',
   '["VP Supply Chain", "VP Merchandising", "CIO"]',
   'Margin pressure driving AI adoption. Seasonal demand patterns.'),

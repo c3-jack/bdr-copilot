@@ -4,11 +4,10 @@ const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
 
 interface SettingsData {
   zoominfo: { configured: boolean; clientId: string; hasPrivateKey: boolean };
-  dynamics: { configured: boolean; orgUrl: string };
+  dataverse: { installed: boolean };
   linkedin: { configured: boolean };
   raw: {
     zoominfo: { clientId: string; privateKey: string };
-    dynamics: { orgUrl: string; tenantId: string; clientId: string; clientSecret: string };
   };
 }
 
@@ -33,11 +32,7 @@ export default function Settings() {
   const [testingZi, setTestingZi] = useState(false);
   const [ziTestResult, setZiTestResult] = useState<TestResult | null>(null);
 
-  // Dynamics
-  const [dynOrgUrl, setDynOrgUrl] = useState('');
-  const [dynTenantId, setDynTenantId] = useState('');
-  const [dynClientId, setDynClientId] = useState('');
-  const [dynClientSecret, setDynClientSecret] = useState('');
+  // Dataverse MCP
   const [testingDyn, setTestingDyn] = useState(false);
   const [dynTestResult, setDynTestResult] = useState<TestResult | null>(null);
 
@@ -51,10 +46,6 @@ export default function Settings() {
       setSettings(data);
       setZiClientId(data.raw.zoominfo.clientId);
       setZiPrivateKey(data.raw.zoominfo.privateKey);
-      setDynOrgUrl(data.raw.dynamics.orgUrl);
-      setDynTenantId(data.raw.dynamics.tenantId);
-      setDynClientId(data.raw.dynamics.clientId);
-      setDynClientSecret(data.raw.dynamics.clientSecret);
     }).catch(() => {});
 
     fetch(`${API}/api/settings/test-claude`).then(r => r.json()).then(setClaude).catch(() => {});
@@ -64,14 +55,12 @@ export default function Settings() {
     setSaving(true);
     setSaved(false);
     setZiTestResult(null);
-    setDynTestResult(null);
     try {
       await fetch(`${API}/api/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           zoominfo: { clientId: ziClientId, privateKey: ziPrivateKey },
-          dynamics: { orgUrl: dynOrgUrl, tenantId: dynTenantId, clientId: dynClientId, clientSecret: dynClientSecret },
         }),
       });
       const res = await fetch(`${API}/api/settings`);
@@ -79,7 +68,7 @@ export default function Settings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      // fail silently
+      setZiTestResult({ ok: false, error: 'Failed to save settings' });
     } finally {
       setSaving(false);
     }
@@ -210,32 +199,28 @@ export default function Settings() {
       </Section>
 
       {/* ── Dynamics 365 ── */}
-      <Section title="Dynamics 365" subtitle="Pull accounts, opportunities, and contacts from CRM" ok={settings?.dynamics.configured ?? false}>
-        <HelpToggle label="How to get credentials" open={expandedHelp === 'dynamics'} onClick={() => toggleHelp('dynamics')} />
-        {expandedHelp === 'dynamics' && (
-          <Steps steps={[
-            'You need 4 values. Your Dynamics admin or IT team can provide these:',
-            'Org URL — Your Dynamics instance URL. Find it by logging into Dynamics 365, then copying the base URL from your browser (e.g. https://yourorg.crm.dynamics.com). Remove any path after .com',
-            'Tenant ID — Go to portal.azure.com → Azure Active Directory → Overview → "Tenant ID" is listed on the main page. Copy it.',
-            'Client ID + Secret — Your admin creates an App Registration in Azure AD:',
-            '  → portal.azure.com → Azure Active Directory → App registrations → New registration',
-            '  → Name it "BDR Copilot" → Register → copy the Application (client) ID',
-            '  → Go to Certificates & secrets → New client secret → copy the Value (not the ID)',
-            '  → Go to API permissions → Add a permission → Dynamics CRM → user_impersonation → Grant admin consent',
-            'Paste all 4 values below and click Test Connection',
-            'If you don\'t have Azure AD access, send this list to your IT admin — it takes them ~5 minutes',
-          ]} />
+      <Section title="Dynamics 365" subtitle="Pull accounts and opportunities from CRM via Dataverse MCP" ok={settings?.dataverse.installed ?? false}>
+        {settings?.dataverse.installed ? (
+          <div>
+            <p className="text-xs text-neutral-400 mb-2">
+              Dataverse MCP is installed. Uses your Microsoft account — no app registration needed.
+            </p>
+            <p className="text-[11px] text-neutral-500 mb-2">
+              First sync will open a browser window for Microsoft login.
+            </p>
+            <div className="flex items-center gap-2">
+              <TestButton label="Test Connection" testing={testingDyn} disabled={false} onClick={testDynamics} />
+              <TestResultBadge result={dynTestResult} />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs text-amber-400 mb-2">Dataverse MCP not found</p>
+            <p className="text-[11px] text-neutral-500">
+              Re-run the BDR Copilot installer — it auto-installs the Dataverse MCP.
+            </p>
+          </div>
         )}
-        <div className="space-y-2 mt-2">
-          <Field label="Org URL" value={dynOrgUrl} onChange={setDynOrgUrl} placeholder="https://yourorg.crm.dynamics.com" />
-          <Field label="Tenant ID" value={dynTenantId} onChange={setDynTenantId} placeholder="e.g. 12345678-abcd-..." />
-          <Field label="Client ID" value={dynClientId} onChange={setDynClientId} placeholder="e.g. abcdef12-3456-..." />
-          <Field label="Client Secret" value={dynClientSecret} onChange={setDynClientSecret} placeholder="e.g. abc~DEF..." secret />
-        </div>
-        <div className="flex items-center gap-2 mt-2">
-          <TestButton label="Test Connection" testing={testingDyn} disabled={!dynOrgUrl || !dynTenantId || !dynClientId || !dynClientSecret} onClick={testDynamics} />
-          <TestResultBadge result={dynTestResult} />
-        </div>
       </Section>
 
       {/* ── Save ── */}
