@@ -48,6 +48,7 @@
   "build": {
     "appId": "com.c3ai.bdr-copilot",
     "productName": "BDR Copilot",
+    "asar": false,
     "directories": {
       "output": "release"
     },
