@@ -35,15 +35,15 @@ export async function askClaude(prompt: string, options?: {
     // Allow Claude to use MCP tools for internal data access
     // When --allowedTools is used, prompt must be passed via -p flag
     args.push('--allowedTools',
-      'mcp__microsoft365__sharepoint_search',
-      'mcp__microsoft365__sharepoint_folder_search',
-      'mcp__microsoft365__outlook_email_search',
-      'mcp__microsoft365__read_resource',
-      'mcp__atlassian__searchConfluenceUsingCql',
-      'mcp__atlassian__getConfluencePage',
-      'mcp__atlassian__getConfluenceSpaces',
-      'mcp__atlassian__searchJiraIssuesUsingJql',
-      'mcp__atlassian__search',
+      'mcp__claude_ai_Microsoft_365__sharepoint_search',
+      'mcp__claude_ai_Microsoft_365__sharepoint_folder_search',
+      'mcp__claude_ai_Microsoft_365__outlook_email_search',
+      'mcp__claude_ai_Microsoft_365__read_resource',
+      'mcp__mcp-atlassian__searchConfluenceUsingCql',
+      'mcp__mcp-atlassian__getConfluencePage',
+      'mcp__mcp-atlassian__getConfluenceSpaces',
+      'mcp__mcp-atlassian__searchJiraIssuesUsingJql',
+      'mcp__mcp-atlassian__search',
       'WebFetch',
       'WebSearch',
     );
@@ -74,7 +74,7 @@ export async function askClaudeJSON<T>(prompt: string, options?: {
 }): Promise<T> {
   const response = await askClaude(
     prompt + '\n\nRespond with valid JSON only, no markdown fencing.',
-    { ...options }
+    { ...options, outputFormat: 'json' }
   );
 
   try {

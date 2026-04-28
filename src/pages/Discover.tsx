@@ -23,6 +23,7 @@ export default function Discover() {
   const [searchAnswer, setSearchAnswer] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [excludedMsg, setExcludedMsg] = useState('');
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +33,7 @@ export default function Discover() {
     setError('');
     setCompanies([]);
     setSearchAnswer('');
+    setExcludedMsg('');
 
     try {
       const result = await discoverCompanies(
@@ -40,6 +42,7 @@ export default function Discover() {
       );
       setCompanies(result.companies);
       setSearchAnswer(result.searchAnswer ?? '');
+      setExcludedMsg(result.excludedReason ?? '');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -118,7 +121,12 @@ export default function Discover() {
 
       {!loading && companies.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs text-neutral-500">{companies.length} companies, ranked by ICP fit</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-neutral-500">{companies.length} companies, ranked by ICP fit</p>
+            {excludedMsg && (
+              <p className="text-xs text-amber-500">{excludedMsg}</p>
+            )}
+          </div>
           {companies.map((company, i) => (
             <CompanyCard
               key={i}

@@ -130,6 +130,20 @@ export function getTargetIndustries() {
   return all('SELECT * FROM target_industries');
 }
 
+/** Check which company names already exist in prospects (any status) */
+export function getExistingProspectNames(): Set<string> {
+  const rows = all('SELECT LOWER(company_name) as name FROM prospects');
+  return new Set(rows.map(r => r.name as string));
+}
+
+/** Get prospects that have been contacted or are in active deals */
+export function getActiveProspectNames(): Set<string> {
+  const rows = all(
+    `SELECT LOWER(company_name) as name FROM prospects WHERE status IN ('contacted', 'qualified')`
+  );
+  return new Set(rows.map(r => r.name as string));
+}
+
 // --- Prospect CRUD ---
 
 export function upsertProspect(prospect: {

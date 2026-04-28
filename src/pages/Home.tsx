@@ -89,11 +89,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Win Patterns */}
+      {/* Getting Started */}
+      {stats && stats.prospects === 0 && (
+        <section className="mb-5">
+          <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Get Started</h3>
+          <div className="bg-neutral-900 border border-neutral-800 rounded p-3 space-y-2">
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-neutral-800 text-neutral-400 text-[11px] flex items-center justify-center font-medium">1</span>
+              <span className="text-sm text-neutral-300">Check your integrations below</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-neutral-800 text-neutral-400 text-[11px] flex items-center justify-center font-medium">2</span>
+              <a href="/discover" className="text-sm text-neutral-200 hover:text-white underline underline-offset-2">Find your first targets</a>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-neutral-800 text-neutral-400 text-[11px] flex items-center justify-center font-medium">3</span>
+              <a href="/outreach" className="text-sm text-neutral-300 hover:text-white underline underline-offset-2">Draft personalized outreach</a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Win Patterns — only show when data exists */}
+      {stats && stats.seedData.winPatterns > 0 && (
       <section className="mb-5">
         <button onClick={() => toggle('wins')} className="flex items-center justify-between w-full mb-2">
           <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-            Win Patterns <span className="text-neutral-600 normal-case font-normal ml-1">{stats?.seedData.winPatterns ?? '...'} loaded</span>
+            Win Patterns <span className="text-neutral-600 normal-case font-normal ml-1">{stats.seedData.winPatterns} loaded</span>
           </h3>
           <span className="text-[11px] text-neutral-600">{expanded === 'wins' ? 'Hide' : 'Show'}</span>
         </button>
@@ -125,11 +147,14 @@ export default function Home() {
         )}
       </section>
 
-      {/* Case Studies */}
+      )}
+
+      {/* Case Studies — only show when data exists */}
+      {stats && stats.seedData.caseStudies > 0 && (
       <section className="mb-5">
         <button onClick={() => toggle('cases')} className="flex items-center justify-between w-full mb-2">
           <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-            Case Studies <span className="text-neutral-600 normal-case font-normal ml-1">{stats?.seedData.caseStudies ?? '...'} loaded</span>
+            Case Studies <span className="text-neutral-600 normal-case font-normal ml-1">{stats.seedData.caseStudies} loaded</span>
           </h3>
           <span className="text-[11px] text-neutral-600">{expanded === 'cases' ? 'Hide' : 'Show'}</span>
         </button>
@@ -149,11 +174,14 @@ export default function Home() {
         )}
       </section>
 
-      {/* Personas */}
+      )}
+
+      {/* Personas — only show when data exists */}
+      {stats && stats.seedData.personas > 0 && (
       <section className="mb-5">
         <button onClick={() => toggle('personas')} className="flex items-center justify-between w-full mb-2">
           <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-            Target Personas <span className="text-neutral-600 normal-case font-normal ml-1">{stats?.seedData.personas ?? '...'} loaded</span>
+            Target Personas <span className="text-neutral-600 normal-case font-normal ml-1">{stats.seedData.personas} loaded</span>
           </h3>
           <span className="text-[11px] text-neutral-600">{expanded === 'personas' ? 'Hide' : 'Show'}</span>
         </button>
@@ -174,6 +202,8 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      )}
 
       {/* What each tab does */}
       <section className="mb-5">

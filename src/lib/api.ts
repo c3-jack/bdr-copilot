@@ -14,7 +14,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Discover
 export function discoverCompanies(query: string, industry?: string, minRevenue?: number) {
-  return request<{ companies: ScoredCompany[]; searchAnswer?: string }>('/discover', {
+  return request<{ companies: ScoredCompany[]; searchAnswer?: string; excluded?: number; excludedReason?: string }>('/discover', {
     method: 'POST',
     body: JSON.stringify({ query, industry, minRevenue }),
   });
@@ -70,6 +70,13 @@ export function updateProspectStatus(id: number, status: string) {
 
 export function getIndustries() {
   return request<{ industries: Industry[] }>('/pipeline/ref/industries');
+}
+
+// Sync from Dynamics CRM
+export function syncDynamics() {
+  return request<{ synced: number; total: number }>('/pipeline/sync-dynamics', {
+    method: 'POST',
+  });
 }
 
 // ZoomInfo contacts for a prospect

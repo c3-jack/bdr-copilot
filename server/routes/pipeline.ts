@@ -1,10 +1,72 @@
 import { Router } from 'express';
-import { getProspects, getProspectById, getTargetIndustries, getWinPatterns, logActivity, updateProspectStatusDb } from '../lib/db.js';
+import { getProspects, getProspectById, getTargetIndustries, getWinPatterns, upsertProspect, logActivity, updateProspectStatusDb } from '../lib/db.js';
 import { scoreProspect } from '../lib/scoring.js';
 import * as zoominfo from '../lib/zoominfo.js';
+import * as dynamics from '../lib/dynamics.js';
 import { generateLinkedInLinks } from '../lib/linkedin.js';
 
 export const pipelineRouter = Router();
+
+// Reference data endpoints — MUST be before /:id to avoid route shadowing
+pipelineRouter.get('/ref/industries', (_req, res) => {
+  try {
+    res.json({ industries: getTargetIndustries() });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+pipelineRouter.get('/ref/patterns', (_req, res) => {
+  try {
+    res.json({ patterns: getWinPatterns() });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sync accounts from Dynamics 365 into local prospects
+pipelineRouter.post('/sync-dynamics', async (_req, res) => {
+  try {
+    if (!dynamics.isConfigured()) {
+      res.status(400).json({ error: 'Dynamics 365 not configured. Add credentials in Settings.' });
+      return;
+    }
+
+    const accounts = await dynamics.getAccounts({ top: 50 });
+
+    // Dynamics industrycode mapping (common codes)
+    const INDUSTRY_MAP: Record<number, string> = {
+      1: 'Financial Services', 2: 'Manufacturing', 3: 'Retail',
+      6: 'Energy', 7: 'Defense', 12: 'Pharma', 33: 'Chemicals', 35: 'Aerospace',
+    };
+
+    let synced = 0;
+    for (const account of accounts) {
+      const revenue_b = account.revenue ? account.revenue / 1e9 : undefined;
+      const industry = account.industrycode ? INDUSTRY_MAP[account.industrycode] : undefined;
+
+      upsertProspect({
+        company_name: account.name,
+        industry: industry ?? undefined,
+        revenue_b: revenue_b && revenue_b > 0 ? revenue_b : undefined,
+        employee_count: account.numberofemployees ?? undefined,
+        headquarters: [account.address1_city, account.address1_stateorprovince, account.address1_country]
+          .filter(Boolean).join(', ') || undefined,
+        dynamics_account_id: account.accountid,
+        status: 'new',
+      });
+      synced++;
+    }
+
+    logActivity('sync_dynamics', `Synced ${synced} accounts from Dynamics 365`);
+    res.json({ synced, total: accounts.length });
+  } catch (error) {
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Get all prospects with scoring
 pipelineRouter.get('/', (req, res) => {
@@ -155,21 +217,3 @@ pipelineRouter.get('/:id/enrich', async (req, res) => {
   }
 });
 
-// Seed data endpoints (for reference data)
-pipelineRouter.get('/ref/industries', (_req, res) => {
-  try {
-    res.json({ industries: getTargetIndustries() });
-  } catch (error) {
-    const err = error as Error;
-    res.status(500).json({ error: err.message });
-  }
-});
-
-pipelineRouter.get('/ref/patterns', (_req, res) => {
-  try {
-    res.json({ patterns: getWinPatterns() });
-  } catch (error) {
-    const err = error as Error;
-    res.status(500).json({ error: err.message });
-  }
-});

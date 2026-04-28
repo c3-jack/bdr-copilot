@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getPipeline, updateProspectStatus, getContacts, enrichProspect, type Prospect, type ZiContactWithLinks, type ZiCompany, type ZiIntent, type LinkedInLinks } from '../lib/api';
+import { getPipeline, updateProspectStatus, getContacts, enrichProspect, syncDynamics, type Prospect, type ZiContactWithLinks, type ZiCompany, type ZiIntent, type LinkedInLinks } from '../lib/api';
 import SignalBadge from '../components/SignalBadge';
 
 const STATUS_FILTERS = ['all', 'new', 'researched', 'contacted', 'qualified', 'disqualified'];
@@ -34,6 +34,9 @@ export default function Pipeline() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [enrichment, setEnrichment] = useState<EnrichmentData | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadProspects();
@@ -45,10 +48,23 @@ export default function Pipeline() {
       const status = filter === 'all' ? undefined : filter;
       const result = await getPipeline(status);
       setProspects(result.prospects);
-    } catch {
-      // silently fail
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSyncDynamics() {
+    setSyncing(true);
+    setSyncError('');
+    try {
+      await syncDynamics();
+      await loadProspects();
+    } catch (err) {
+      setSyncError((err as Error).message);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -56,8 +72,8 @@ export default function Pipeline() {
     try {
       await updateProspectStatus(id, newStatus);
       await loadProspects();
-    } catch {
-      // silently fail
+    } catch (err) {
+      setError((err as Error).message);
     }
   }
 
@@ -98,9 +114,18 @@ export default function Pipeline() {
   return (
     <div className="max-w-4xl">
       <h2 className="text-lg font-semibold text-neutral-100 mb-0.5">My Pipeline</h2>
-      <p className="text-neutral-500 text-sm mb-5">
-        Track and manage discovered prospects.
-      </p>
+      <div className="flex items-center justify-between mb-5">
+        <p className="text-neutral-500 text-sm">
+          Track and manage discovered prospects.
+        </p>
+        <button
+          onClick={handleSyncDynamics}
+          disabled={syncing}
+          className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 disabled:text-neutral-600 text-neutral-300 rounded transition-colors"
+        >
+          {syncing ? 'Syncing...' : 'Sync from CRM'}
+        </button>
+      </div>
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1.5">
@@ -134,15 +159,45 @@ export default function Pipeline() {
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-950/50 border border-red-900/50 text-red-400 px-3 py-2 rounded text-sm mb-4">
+          {error}
+        </div>
+      )}
+      {syncError && (
+        <div className="bg-red-950/50 border border-red-900/50 text-red-400 px-3 py-2 rounded text-sm mb-4">
+          {syncError}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-16">
           <div className="inline-block w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : sorted.length === 0 ? (
-        <div className="text-center py-16 text-neutral-500 text-sm">
-          {filter === 'all'
-            ? 'No prospects yet. Use Find Targets to discover companies.'
-            : `No "${filter}" prospects.`}
+        <div className="text-center py-16">
+          <p className="text-neutral-400 text-sm mb-4">
+            {filter === 'all'
+              ? 'No prospects in your pipeline yet.'
+              : `No "${filter}" prospects.`}
+          </p>
+          {filter === 'all' && (
+            <div className="flex items-center justify-center gap-3">
+              <a
+                href="/discover"
+                className="px-4 py-2 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium rounded transition-colors"
+              >
+                Find Targets
+              </a>
+              <button
+                onClick={handleSyncDynamics}
+                disabled={syncing}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-800 disabled:text-neutral-600 text-neutral-200 text-sm rounded transition-colors"
+              >
+                {syncing ? 'Syncing...' : 'Sync from Dynamics'}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-2">

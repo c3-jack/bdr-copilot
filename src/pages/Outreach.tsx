@@ -185,11 +185,23 @@ export default function Outreach() {
         </div>
       )}
 
-      {!selectedProspect && !loading && (
+      {!selectedProspect && !loading && prospects.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-neutral-400 text-sm mb-3">No prospects in your pipeline yet.</p>
+          <a
+            href="/discover"
+            className="inline-block px-4 py-2 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium rounded transition-colors"
+          >
+            Find Targets First
+          </a>
+          <p className="text-neutral-600 text-xs mt-3">
+            Discover companies, then come back here to draft personalized emails.
+          </p>
+        </div>
+      )}
+      {!selectedProspect && !loading && prospects.length > 0 && (
         <div className="text-center py-16 text-neutral-500 text-sm">
-          {prospects.length === 0
-            ? 'No prospects yet. Use Find Targets to discover companies first.'
-            : 'Select a prospect above to generate outreach.'}
+          Select a prospect above to generate outreach.
         </div>
       )}
     </div>

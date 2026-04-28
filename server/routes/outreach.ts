@@ -89,7 +89,7 @@ ${cached ? `## Research Intelligence\n${(cached.research_json as string).slice(0
 ${customContext ? `## Additional Context from BDR\n${customContext}` : ''}
 
 ## Relevant Case Study
-${bestCaseStudy ? `${bestCaseStudy.customer_name} (${bestCaseStudy.industry}): ${bestCaseStudy.summary}\nValue: ${bestCaseStudy.value_delivered}` : 'No specific case study available'}
+${bestCaseStudy ? `${bestCaseStudy.customer_name} (${bestCaseStudy.industry}): ${bestCaseStudy.summary}\nValue: ${bestCaseStudy.value_delivered}` : 'No case study loaded for this industry.'}
 
 ## Win Patterns in ${industry}
 ${JSON.stringify(winPatterns.slice(0, 3), null, 2)}

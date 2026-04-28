@@ -5,6 +5,7 @@ const net = require('net');
 
 let mainWindow = null;
 let serverProcess = null;
+let serverPort = null;
 
 function getFreePorts() {
   return new Promise((resolve, reject) => {
@@ -49,7 +50,7 @@ function getShellPath() {
   let shellPath = '';
   try {
     const shell = process.env.SHELL || '/bin/zsh';
-    shellPath = execFileSync(shell, ['-ilc', 'echo $PATH'], {
+    shellPath = execFileSync(shell, ['-lc', 'echo $PATH'], {
       encoding: 'utf-8',
       timeout: 5000,
       env: { ...process.env, HOME: home },
@@ -684,10 +685,9 @@ app.whenReady().then(async () => {
   }
 
   // Step 3: Start Express backend
-  let port;
   try {
-    port = await getFreePorts();
-    await startBackendServer(port);
+    serverPort = await getFreePorts();
+    await startBackendServer(serverPort);
   } catch (err) {
     dialog.showErrorBox('Server Error', `Failed to start BDR Copilot server:\n${err.message}`);
     app.quit();
@@ -695,7 +695,7 @@ app.whenReady().then(async () => {
   }
 
   // Step 4: Open main window
-  mainWindow = createMainWindow(port);
+  mainWindow = createMainWindow(serverPort);
 
   if (!prereqs.claudeAuthenticated) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -722,7 +722,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (!mainWindow && serverProcess) {
-    mainWindow = createMainWindow(serverProcess.port);
+  if (!mainWindow && serverProcess && serverPort) {
+    mainWindow = createMainWindow(serverPort);
   }
 });
