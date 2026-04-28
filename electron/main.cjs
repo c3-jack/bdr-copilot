@@ -40,10 +40,24 @@ function findClaudeBinary() {
 }
 
 function getShellPath() {
-  // Electron doesn't inherit the user's shell PATH. Reconstruct it.
-  const base = process.env.PATH || '';
-  const home = process.env.HOME || '';
+  // Electron doesn't inherit the user's shell PATH.
+  // Get the real PATH by asking the user's login shell.
+  const { execFileSync } = require('child_process');
   const fs = require('fs');
+  const home = process.env.HOME || '';
+
+  let shellPath = '';
+  try {
+    const shell = process.env.SHELL || '/bin/zsh';
+    shellPath = execFileSync(shell, ['-ilc', 'echo $PATH'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: { ...process.env, HOME: home },
+    }).trim();
+  } catch {}
+
+  // Merge with Electron's PATH and common extras as fallback
+  const base = process.env.PATH || '';
   const extras = [
     '/usr/local/bin',
     '/opt/homebrew/bin',
@@ -64,7 +78,12 @@ function getShellPath() {
   // fnm
   const fnmCurrent = path.join(home, '.fnm/current/bin');
   if (fs.existsSync(fnmCurrent)) extras.push(fnmCurrent);
-  const parts = new Set(base.split(':').concat(extras));
+
+  const parts = new Set([
+    ...shellPath.split(':').filter(Boolean),
+    ...base.split(':').filter(Boolean),
+    ...extras,
+  ]);
   return [...parts].join(':');
 }
 
@@ -191,13 +210,24 @@ function showAuthFlow() {
 
 async function startBackendServer(port) {
   const serverScript = path.join(__dirname, '..', 'dist', 'server', 'index.js');
+  const fs = require('fs');
 
   // Find the real node binary (not Electron's)
   const nodePath = process.env.NODE_PATH_OVERRIDE || findNodeBinary();
+  const resolvedPath = getShellPath();
+
+  // Validate the node binary before trying to spawn
+  if (!fs.existsSync(nodePath)) {
+    throw new Error(
+      `Node binary not found at: ${nodePath}\n` +
+      `Searched PATH: ${resolvedPath.split(':').filter(p => p.includes('node') || p.includes('nvm') || p.includes('fnm') || p.includes('brew')).join(', ')}\n` +
+      `Fix: open Terminal and run: brew install node`
+    );
+  }
 
   return new Promise((resolve, reject) => {
     serverProcess = spawn(nodePath, [serverScript], {
-      env: { ...process.env, PORT: String(port), BDR_ELECTRON: '1', PATH: getShellPath() },
+      env: { ...process.env, PORT: String(port), BDR_ELECTRON: '1', PATH: resolvedPath },
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: path.join(__dirname, '..'),
     });
@@ -220,7 +250,12 @@ async function startBackendServer(port) {
     });
 
     serverProcess.on('error', (err) => {
-      if (!started) reject(err);
+      if (!started) reject(new Error(
+        `spawn error: ${err.message}\n` +
+        `Node path: ${nodePath}\n` +
+        `Server script: ${serverScript}\n` +
+        `Fix: open Terminal and run: brew install node`
+      ));
     });
 
     serverProcess.on('exit', (code) => {
