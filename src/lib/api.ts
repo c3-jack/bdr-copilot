@@ -68,6 +68,27 @@ export function getDrafts(prospectId?: number) {
   return request<{ drafts: Draft[] }>(path);
 }
 
+// Timing intelligence
+export function getTimingIntelligence(prospectId: number) {
+  return request<{ timing: TimingIntelligence; prospect: Prospect }>(`/research/${prospectId}/timing`, {
+    method: 'POST',
+    timeoutMs: 300_000, // Deep web research can take a while
+  });
+}
+
+export interface TimingIntelligence {
+  fiscalYearEnd: string;
+  budgetPhase: 'planning' | 'allocated' | 'frozen' | 'new-fy' | 'unknown';
+  triggerEvents: Array<{ event: string; date: string; significance: 'high' | 'medium' | 'low'; source: string; url: string; confidence: 'verified' | 'inferred' }>;
+  competitiveLandscape: { currentTools: string[]; contractRenewals: Array<{ vendor: string; estimatedDate: string; source: string }>; vulnerability: string };
+  buyerMap: Array<{ name: string; title: string; role: 'economic-buyer' | 'champion' | 'evaluator' | 'coach' | 'blocker'; signal: string; source: string; url: string }>;
+  priorEngagement: { lastContactDate: string | null; stage: string | null; outcome: string | null; keyContacts: string[] };
+  jobPostings: Array<{ title: string; relevance: string; url: string }>;
+  recommendedTimingWindow: { window: string; reasoning: string; urgency: 'strike-now' | 'warming' | 'early-stage' | 'not-ready'; confidence: 'high' | 'medium' | 'low'; revisitDate: string };
+  outreachStrategy: { channel: string; hook: string; timing: string; opener: string };
+  nextEarningsDate: string | null;
+}
+
 // Pipeline
 export function getPipeline(status?: string) {
   const params = status ? `?status=${status}` : '';

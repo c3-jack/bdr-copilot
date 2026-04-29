@@ -48,6 +48,11 @@ export default function Outreach() {
           setTargetTitle(match.recommended_title ?? match.recommendedTitle ?? '');
         }
       }
+      // Pre-fill timing context if passed from Pipeline
+      const tc = searchParams.get('timingContext');
+      if (tc && !customContext) {
+        setCustomContext(decodeURIComponent(tc));
+      }
     }).catch(() => {});
     // Fetch all drafts for history tab
     fetchDrafts().then(r => setAllDrafts(r.drafts)).catch(() => {});

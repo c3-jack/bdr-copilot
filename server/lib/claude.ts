@@ -101,8 +101,8 @@ export async function askClaude(prompt: string, options?: {
     args.push(prompt);
   }
 
-  // Longer timeout for MCP calls (browser auth popup can be slow)
-  const timeout = (options?.useMcp || options?.useDataverse) ? 180_000 : 120_000;
+  // Longer timeout for MCP calls (web search + SharePoint + synthesis can take 3-5 min)
+  const timeout = (options?.useMcp || options?.useDataverse) ? 300_000 : 120_000;
 
   try {
     const claudeBin = findClaudeBinary();

@@ -217,7 +217,14 @@ export function getProspectById(id: number) {
 
 // --- Research cache ---
 
-export function getCachedResearch(prospectId: number) {
+export function getCachedResearch(prospectId: number, researchType?: string) {
+  const ttl = researchType === 'timing' ? '-1 days' : '-7 days';
+  if (researchType) {
+    return get(
+      `SELECT * FROM research_cache WHERE prospect_id = ? AND research_type = ? AND fetched_at > datetime('now', ?) ORDER BY fetched_at DESC LIMIT 1`,
+      [prospectId, researchType, ttl]
+    );
+  }
   return get(
     `SELECT * FROM research_cache WHERE prospect_id = ? AND fetched_at > datetime('now', '-7 days') ORDER BY fetched_at DESC LIMIT 1`,
     [prospectId]

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPipeline, updateProspectStatus, getContacts, enrichProspect, syncDynamics, type Prospect, type ZiContactWithLinks, type ZiCompany, type ZiIntent, type LinkedInLinks } from '../lib/api';
+import { getPipeline, updateProspectStatus, getContacts, enrichProspect, syncDynamics, getTimingIntelligence, type Prospect, type ZiContactWithLinks, type ZiCompany, type ZiIntent, type LinkedInLinks, type TimingIntelligence } from '../lib/api';
 import SignalBadge from '../components/SignalBadge';
 
 const STATUS_FILTERS = ['all', 'new', 'researched', 'contacted', 'qualified', 'disqualified'];
@@ -36,6 +36,9 @@ export default function Pipeline() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [enrichment, setEnrichment] = useState<EnrichmentData | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
+  const [timing, setTiming] = useState<TimingIntelligence | null>(null);
+  const [timingLoading, setTimingLoading] = useState(false);
+  const [timingId, setTimingId] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [error, setError] = useState('');
@@ -105,6 +108,25 @@ export default function Pipeline() {
       setEnrichment({ company: null, intent: [], linkedIn: { profileSearch: '', salesNavSearch: '', companyPage: '' }, contacts: [], configured: false });
     } finally {
       setEnrichLoading(false);
+    }
+  }
+
+  async function handleTiming(prospect: Prospect) {
+    if (timingId === prospect.id) {
+      setTimingId(null);
+      setTiming(null);
+      return;
+    }
+    setTimingId(prospect.id);
+    setTimingLoading(true);
+    setTiming(null);
+    try {
+      const res = await getTimingIntelligence(prospect.id);
+      setTiming(res.timing);
+    } catch {
+      setTiming(null);
+    } finally {
+      setTimingLoading(false);
     }
   }
 
@@ -260,6 +282,17 @@ export default function Pipeline() {
                   </div>
                   <div className="flex items-center gap-3 ml-4">
                     <button
+                      onClick={() => handleTiming(prospect)}
+                      disabled={timingLoading && timingId === prospect.id}
+                      className={`text-xs px-2 py-1 rounded transition-colors ${
+                        timingId === prospect.id && timing
+                          ? 'bg-violet-500/20 text-violet-400 font-medium'
+                          : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800'
+                      }`}
+                    >
+                      {timingLoading && timingId === prospect.id ? 'Researching...' : 'Timing'}
+                    </button>
+                    <button
                       onClick={() => navigate(`/outreach?prospectId=${prospect.id}`)}
                       className="text-xs px-2 py-1 rounded text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 transition-colors"
                     >
@@ -290,6 +323,19 @@ export default function Pipeline() {
                   </div>
                 </div>
               </div>
+
+              {timingId === prospect.id && (timing || timingLoading) && (
+                <div className="border-t border-neutral-800 p-3">
+                  {timingLoading ? (
+                    <div className="flex items-center gap-2 text-neutral-500 text-xs py-3">
+                      <div className="w-3.5 h-3.5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
+                      Deep timing research (searching web, then SharePoint, then analyzing)...
+                    </div>
+                  ) : timing ? (
+                    <TimingPanel timing={timing} prospect={prospect} navigate={navigate} />
+                  ) : null}
+                </div>
+              )}
 
               {expandedId === prospect.id && (
                 <div className="border-t border-neutral-800 p-3">
@@ -399,6 +445,229 @@ export default function Pipeline() {
           {sorted.filter(p => p.isStale).length} stale &middot;
           avg score {Math.round(sorted.reduce((sum, p) => sum + (p.score ?? 0), 0) / sorted.length)}
         </p>
+      )}
+    </div>
+  );
+}
+
+// ── Timing Panel (two-tier: summary always visible, details behind toggle) ──
+
+const urgencyStyles: Record<string, string> = {
+  'strike-now': 'bg-emerald-500/10 text-emerald-400',
+  'warming': 'bg-amber-500/10 text-amber-400',
+  'early-stage': 'bg-blue-500/10 text-blue-400',
+  'not-ready': 'bg-neutral-800/40 text-neutral-400',
+};
+
+const roleColors: Record<string, string> = {
+  'economic-buyer': 'text-emerald-400',
+  'champion': 'text-blue-400',
+  'evaluator': 'text-violet-400',
+  'coach': 'text-amber-400',
+  'blocker': 'text-red-400',
+};
+
+function TimingPanel({ timing, prospect, navigate }: { timing: TimingIntelligence; prospect: Prospect; navigate: (path: string) => void }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const tw = timing.recommendedTimingWindow;
+  const strategy = timing.outreachStrategy;
+
+  // Build timing context to pass to outreach
+  const timingContext = [
+    tw.urgency !== 'not-ready' && strategy.hook ? `Timing hook: ${strategy.hook}` : '',
+    timing.triggerEvents.slice(0, 2).map(t => `Trigger: ${t.event} (${t.date})`).join('\n'),
+    timing.buyerMap.filter(b => b.role === 'economic-buyer').map(b => `Economic buyer: ${b.name}, ${b.title}`).join('\n'),
+    strategy.opener ? `Suggested opener: ${strategy.opener}` : '',
+  ].filter(Boolean).join('\n');
+
+  return (
+    <div className="space-y-3">
+      {/* ── Tier 1: Always visible ── */}
+
+      {/* Urgency + confidence */}
+      <div className={`rounded p-2.5 ${urgencyStyles[tw.urgency] ?? urgencyStyles['not-ready']}`}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wider">
+              {tw.urgency.replace('-', ' ')}
+            </span>
+            <span className={`text-[11px] px-1.5 py-0.5 rounded ${
+              tw.confidence === 'high' ? 'bg-emerald-500/20' :
+              tw.confidence === 'medium' ? 'bg-amber-500/20' : 'bg-neutral-700'
+            }`}>
+              {tw.confidence} confidence
+            </span>
+          </div>
+          <span className="text-xs">{tw.window}</span>
+        </div>
+        <p className="text-xs">{tw.reasoning}</p>
+        {tw.urgency === 'not-ready' && tw.revisitDate && (
+          <p className="text-[11px] mt-1 opacity-75">Re-check: {tw.revisitDate}</p>
+        )}
+      </div>
+
+      {/* Strategy */}
+      <div className="bg-neutral-800/40 rounded p-2.5">
+        <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1">Outreach Strategy</h4>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="text-neutral-500">Channel</span>
+            <p className="text-neutral-300 capitalize">{strategy.channel}</p>
+          </div>
+          <div>
+            <span className="text-neutral-500">Timing</span>
+            <p className="text-neutral-300">{strategy.timing}</p>
+          </div>
+        </div>
+        {strategy.hook && (
+          <p className="text-xs text-neutral-400 mt-1.5">
+            <span className="text-neutral-500">Hook:</span> {strategy.hook}
+          </p>
+        )}
+        {strategy.opener && (
+          <p className="text-xs text-neutral-300 mt-1 italic">&ldquo;{strategy.opener}&rdquo;</p>
+        )}
+      </div>
+
+      {/* Top 2 trigger events */}
+      {timing.triggerEvents.length > 0 && (
+        <div className="bg-neutral-800/40 rounded p-2.5">
+          <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">Top Triggers</h4>
+          {timing.triggerEvents.slice(0, 2).map((t, i) => (
+            <div key={i} className="flex items-start justify-between text-xs gap-2 mb-1">
+              <div className="flex-1 min-w-0">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                  t.significance === 'high' ? 'bg-emerald-400' :
+                  t.significance === 'medium' ? 'bg-amber-400' : 'bg-neutral-500'
+                }`} />
+                <span className="text-neutral-300">{t.event}</span>
+                <span className="text-neutral-600 ml-1.5">{t.date}</span>
+              </div>
+              <a href={t.url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-400 hover:underline shrink-0">source</a>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Action row */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => navigate(`/outreach?prospectId=${prospect.id}&timingContext=${encodeURIComponent(timingContext)}`)}
+          className="text-xs px-3 py-1.5 bg-neutral-100 text-neutral-900 font-medium rounded hover:bg-white transition-colors"
+        >
+          Write Outreach with Timing
+        </button>
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
+        >
+          {showDetails ? 'Hide details' : 'Full intel'}
+        </button>
+      </div>
+
+      {/* ── Tier 2: Behind "Full intel" toggle ── */}
+      {showDetails && (
+        <div className="space-y-3">
+          {/* All trigger events */}
+          {timing.triggerEvents.length > 2 && (
+            <div className="bg-neutral-800/40 rounded p-2.5">
+              <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">All Trigger Events</h4>
+              <div className="space-y-1.5">
+                {timing.triggerEvents.slice(2).map((t, i) => (
+                  <div key={i} className="flex items-start justify-between text-xs gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                        t.significance === 'high' ? 'bg-emerald-400' :
+                        t.significance === 'medium' ? 'bg-amber-400' : 'bg-neutral-500'
+                      }`} />
+                      <span className="text-neutral-300">{t.event}</span>
+                      <span className="text-neutral-600 ml-1.5">{t.date}</span>
+                      {t.confidence === 'inferred' && <span className="text-[11px] text-neutral-600 ml-1">(inferred)</span>}
+                    </div>
+                    <a href={t.url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-400 hover:underline shrink-0">source</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Buyer map */}
+          {timing.buyerMap?.length > 0 && (
+            <div className="bg-neutral-800/40 rounded p-2.5">
+              <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">Buyer Map</h4>
+              <div className="space-y-1.5">
+                {timing.buyerMap.map((b, i) => (
+                  <div key={i} className="text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-neutral-200 font-medium">{b.name}</span>
+                      <span className="text-neutral-500">{b.title}</span>
+                      <span className={`text-[11px] capitalize ${roleColors[b.role] ?? 'text-neutral-500'}`}>
+                        {b.role.replace('-', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-neutral-400 mt-0.5">{b.signal}</p>
+                    {b.url && <a href={b.url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-400 hover:underline">source</a>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Prior engagement */}
+          {timing.priorEngagement?.lastContactDate && (
+            <div className="bg-neutral-800/40 rounded p-2.5">
+              <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1">Prior C3 Engagement</h4>
+              <div className="text-xs text-neutral-400">
+                <p>Last contact: <span className="text-neutral-300">{timing.priorEngagement.lastContactDate}</span></p>
+                {timing.priorEngagement.stage && <p>Stage: <span className="text-neutral-300">{timing.priorEngagement.stage}</span></p>}
+                {timing.priorEngagement.outcome && <p>Outcome: <span className="text-neutral-300">{timing.priorEngagement.outcome}</span></p>}
+                {timing.priorEngagement.keyContacts?.length > 0 && (
+                  <p>Key contacts: <span className="text-neutral-300">{timing.priorEngagement.keyContacts.join(', ')}</span></p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Competitive landscape */}
+          <div className="bg-neutral-800/40 rounded p-2.5">
+            <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1">Competitive Landscape</h4>
+            {timing.competitiveLandscape.currentTools?.length > 0 && (
+              <p className="text-xs text-neutral-400 mb-1">
+                Current tools: <span className="text-neutral-300">{timing.competitiveLandscape.currentTools.join(', ')}</span>
+              </p>
+            )}
+            {timing.competitiveLandscape.contractRenewals?.length > 0 && (
+              <div className="mb-1">
+                {timing.competitiveLandscape.contractRenewals.map((r, i) => (
+                  <p key={i} className="text-xs text-amber-400">
+                    {r.vendor} renewal: ~{r.estimatedDate}
+                  </p>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-neutral-400">{timing.competitiveLandscape.vulnerability}</p>
+          </div>
+
+          {/* Job postings */}
+          {timing.jobPostings?.length > 0 && (
+            <div className="bg-neutral-800/40 rounded p-2.5">
+              <h4 className="text-[11px] text-neutral-500 uppercase tracking-wider mb-1.5">Job Postings</h4>
+              <div className="space-y-1">
+                {timing.jobPostings.map((j, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-300">{j.title}</span>
+                    <a href={j.url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-400 hover:underline">view</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-neutral-600">
+            FY end: {timing.fiscalYearEnd} &middot; Budget: {timing.budgetPhase}
+            {timing.nextEarningsDate && ` · Next earnings: ${timing.nextEarningsDate}`}
+          </p>
+        </div>
       )}
     </div>
   );
