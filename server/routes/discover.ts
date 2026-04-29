@@ -48,19 +48,9 @@ discoverRouter.post('/', async (req, res) => {
 
     // Build exclusion list: companies already contacted or with active deals
     const activeNames = getActiveProspectNames();
+    // Dynamics CRM exclusion disabled — Dataverse MCP requires admin consent
+    // that hasn't been granted yet. Using local prospect DB for exclusion only.
     const dynamicsNames = new Set<string>();
-    try {
-      // Use Dataverse MCP to find accounts with open opportunities
-      const names = await askClaudeJSON<string[]>(
-        'Use the dataverse_sql tool to run: SELECT a.name FROM account a INNER JOIN opportunity o ON a.accountid = o._parentaccountid_value WHERE o.statecode = 0. Return ONLY a JSON array of company name strings.',
-        { systemPrompt: 'Execute the SQL query. Return a JSON array of strings only.', useDataverse: true }
-      );
-      for (const name of names) {
-        if (name && typeof name === 'string') dynamicsNames.add(name.toLowerCase());
-      }
-    } catch {
-      // Dataverse MCP unavailable — skip CRM filter
-    }
 
     const excludeList = [...new Set([...activeNames, ...dynamicsNames])];
     const excludePrompt = excludeList.length > 0

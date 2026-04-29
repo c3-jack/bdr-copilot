@@ -26,8 +26,19 @@ pipelineRouter.get('/ref/patterns', (_req, res) => {
   }
 });
 
-// Sync accounts from Dynamics 365 via Dataverse MCP (browser auth, no credentials needed)
+// Sync accounts from Dynamics 365 via Dataverse MCP
+// Currently disabled — requires admin consent for non-admin users
 pipelineRouter.post('/sync-dynamics', async (_req, res) => {
+  // Gate behind explicit opt-in once admin has granted consent
+  const DYNAMICS_ENABLED = false;
+  if (!DYNAMICS_ENABLED) {
+    res.status(503).json({
+      error: 'Dynamics sync is not available yet. An admin needs to grant Dataverse MCP consent for non-admin users. Contact your IT admin.',
+      code: 'DYNAMICS_NOT_AUTHORIZED',
+    });
+    return;
+  }
+
   try {
     interface DataverseAccount {
       accountid: string;

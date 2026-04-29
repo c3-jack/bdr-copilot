@@ -86,21 +86,9 @@ settingsRouter.post('/test-zoominfo', async (_req, res) => {
 });
 
 // POST /api/settings/test-dynamics — test Dataverse MCP connection
+// Currently disabled — requires admin consent for non-admin users
 settingsRouter.post('/test-dynamics', async (_req, res) => {
-  try {
-    const result = await askClaude(
-      'Use the dataverse_whoami tool to check the connection. Reply with just the user display name or "connected" if it works.',
-      { systemPrompt: 'Execute the whoami tool and report the result briefly.', useDataverse: true }
-    );
-    const text = result.text.trim();
-    if (text.length > 0) {
-      res.json({ ok: true, user: text });
-    } else {
-      res.json({ ok: false, error: 'No response from Dataverse MCP' });
-    }
-  } catch (err) {
-    res.json({ ok: false, error: (err as Error).message });
-  }
+  res.json({ ok: false, error: 'Dynamics integration requires admin consent. Contact your IT admin to enable Dataverse MCP for non-admin users.' });
 });
 
 // --- Writing Style Samples ---
