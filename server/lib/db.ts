@@ -33,6 +33,17 @@ export async function initDatabase(): Promise<Database> {
     saveDb();
   }
 
+  // Migrations for existing databases
+  try { db.run('ALTER TABLE outreach_drafts ADD COLUMN citations_json TEXT'); saveDb(); } catch { /* already exists */ }
+  db.run(`CREATE TABLE IF NOT EXISTS writing_style_samples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    body TEXT NOT NULL,
+    source TEXT DEFAULT 'manual',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  saveDb();
+
   return db;
 }
 
@@ -230,10 +241,11 @@ export function saveDraft(draft: {
   template_id?: number;
   sequence_position?: number;
   tone?: string;
+  citations_json?: string;
 }) {
   run(
-    `INSERT INTO outreach_drafts (contact_id, prospect_id, subject, body, template_id, sequence_position, tone)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO outreach_drafts (contact_id, prospect_id, subject, body, template_id, sequence_position, tone, citations_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       draft.contact_id ?? null,
       draft.prospect_id,
@@ -242,6 +254,7 @@ export function saveDraft(draft: {
       draft.template_id ?? null,
       draft.sequence_position ?? 1,
       draft.tone ?? 'professional',
+      draft.citations_json ?? null,
     ]
   );
 }
@@ -251,4 +264,36 @@ export function getDrafts(prospectId?: number) {
     return all('SELECT * FROM outreach_drafts WHERE prospect_id = ? ORDER BY created_at DESC', [prospectId]);
   }
   return all('SELECT * FROM outreach_drafts ORDER BY created_at DESC LIMIT 50');
+}
+
+export function getDraftsGrouped() {
+  return all(`
+    SELECT d.*, p.company_name, p.industry
+    FROM outreach_drafts d
+    LEFT JOIN prospects p ON d.prospect_id = p.id
+    ORDER BY d.created_at DESC
+    LIMIT 200
+  `);
+}
+
+// --- Writing style samples ---
+
+export function getStyleSamples() {
+  return all('SELECT * FROM writing_style_samples ORDER BY created_at DESC');
+}
+
+export function addStyleSample(label: string, body: string, source?: string) {
+  run(
+    'INSERT INTO writing_style_samples (label, body, source) VALUES (?, ?, ?)',
+    [label, body, source ?? 'manual']
+  );
+}
+
+export function deleteStyleSample(id: number) {
+  run('DELETE FROM writing_style_samples WHERE id = ?', [id]);
+}
+
+export function getStyleSamplesForPrompt(): string[] {
+  const samples = all('SELECT body FROM writing_style_samples ORDER BY created_at DESC LIMIT 5');
+  return samples.map(s => (s.body as string).slice(0, 500));
 }

@@ -274,6 +274,13 @@ export interface PastEngagement {
   similarity: string;
 }
 
+export interface Citation {
+  claim: string;
+  source: string;
+  sourceType: 'case_study' | 'sharepoint' | 'web' | 'seed_data';
+  url?: string;
+}
+
 export interface OutreachResult {
   emails: Array<{
     subject: string;
@@ -282,6 +289,7 @@ export interface OutreachResult {
     tone: string;
     personaType: string;
     templateBasis: string;
+    citations?: Citation[];
   }>;
   context: {
     companyName: string;
@@ -300,7 +308,34 @@ export interface Draft {
   sequence_position: number;
   tone: string;
   status: string;
+  citations_json?: string;
+  company_name?: string;
+  industry?: string;
   created_at: string;
+}
+
+export interface StyleSample {
+  id: number;
+  label: string;
+  body: string;
+  source: string;
+  created_at: string;
+}
+
+// Style samples API
+export function getStyleSamples() {
+  return request<{ samples: StyleSample[] }>('/settings/style-samples');
+}
+
+export function addStyleSample(label: string, body: string) {
+  return request<{ ok: boolean }>('/settings/style-samples', {
+    method: 'POST',
+    body: JSON.stringify({ label, body }),
+  });
+}
+
+export function deleteStyleSample(id: number) {
+  return request<{ ok: boolean }>(`/settings/style-samples/${id}`, { method: 'DELETE' });
 }
 
 export interface Industry {

@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react';
+import {
+  getStyleSamples as fetchStyleSamples,
+  addStyleSample as apiAddStyleSample,
+  deleteStyleSample as apiDeleteStyleSample,
+  type StyleSample,
+} from '../lib/api';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
 
@@ -41,6 +47,12 @@ export default function Settings() {
   const [testingClaude, setTestingClaude] = useState(false);
   const [expandedHelp, setExpandedHelp] = useState<string | null>(null);
 
+  // Writing style
+  const [styleSamples, setStyleSamples] = useState<StyleSample[]>([]);
+  const [newLabel, setNewLabel] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [addingStyle, setAddingStyle] = useState(false);
+
   useEffect(() => {
     fetch(`${API}/api/settings`).then(r => r.json()).then((data: SettingsData) => {
       setSettings(data);
@@ -49,7 +61,28 @@ export default function Settings() {
     }).catch(() => {});
 
     fetch(`${API}/api/settings/test-claude`).then(r => r.json()).then(setClaude).catch(() => {});
+    fetchStyleSamples().then(r => setStyleSamples(r.samples)).catch(() => {});
   }, []);
+
+  async function handleAddStyle() {
+    if (!newLabel.trim() || !newBody.trim()) return;
+    setAddingStyle(true);
+    try {
+      await apiAddStyleSample(newLabel.trim(), newBody.trim());
+      const r = await fetchStyleSamples();
+      setStyleSamples(r.samples);
+      setNewLabel('');
+      setNewBody('');
+    } catch { /* ignore */ }
+    setAddingStyle(false);
+  }
+
+  async function handleDeleteStyle(id: number) {
+    try {
+      await apiDeleteStyleSample(id);
+      setStyleSamples(prev => prev.filter(s => s.id !== id));
+    } catch { /* ignore */ }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -219,6 +252,52 @@ export default function Settings() {
             <p className="text-[11px] text-neutral-500">
               Re-run the BDR Copilot installer — it auto-installs the Dataverse MCP.
             </p>
+          </div>
+        )}
+      </Section>
+
+      {/* ── Writing Style ── */}
+      <Section title="Writing Style" subtitle="Teach the AI to match your voice" ok={styleSamples.length >= 3}>
+        <p className="text-[11px] text-neutral-500 mb-2">
+          Paste 3-5 emails you've written. The AI will match your tone, sentence structure, and personality.
+        </p>
+        <p className="text-[11px] text-neutral-400 mb-3">{styleSamples.length}/5 samples</p>
+
+        {styleSamples.map(s => (
+          <div key={s.id} className="flex items-start justify-between gap-2 mb-2 bg-neutral-800/50 rounded p-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-neutral-300 font-medium truncate">{s.label}</p>
+              <p className="text-[11px] text-neutral-500 line-clamp-2 mt-0.5">{s.body}</p>
+            </div>
+            <button
+              onClick={() => handleDeleteStyle(s.id)}
+              className="text-[11px] text-neutral-600 hover:text-red-400 shrink-0 mt-0.5"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+
+        {styleSamples.length < 5 && (
+          <div className="mt-3 space-y-2">
+            <Field label="Label" value={newLabel} onChange={setNewLabel} placeholder="e.g., Follow-up to VP at Chevron" />
+            <div>
+              <label className="block text-[11px] text-neutral-500 mb-0.5">Email body</label>
+              <textarea
+                value={newBody}
+                onChange={e => setNewBody(e.target.value)}
+                placeholder="Paste one of your outreach emails here..."
+                rows={5}
+                className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
+              />
+            </div>
+            <button
+              onClick={handleAddStyle}
+              disabled={addingStyle || !newLabel.trim() || !newBody.trim()}
+              className="text-xs px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 disabled:text-neutral-600 text-neutral-300 rounded transition-colors"
+            >
+              {addingStyle ? 'Adding...' : 'Add Sample'}
+            </button>
           </div>
         )}
       </Section>

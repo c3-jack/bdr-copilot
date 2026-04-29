@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS outreach_drafts (
   template_id INTEGER REFERENCES outreach_templates(id),
   sequence_position INTEGER DEFAULT 1,
   tone TEXT,
+  citations_json TEXT,          -- JSON array of {claim, source, sourceType, url?}
   status TEXT DEFAULT 'draft', -- draft, sent, archived
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -135,6 +136,14 @@ CREATE TABLE IF NOT EXISTS activity_log (
   action TEXT NOT NULL, -- 'discover', 'research', 'draft_outreach', 'view_pipeline'
   details TEXT,
   token_usage INTEGER, -- rough token count for cost tracking
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS writing_style_samples (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  label TEXT NOT NULL,           -- e.g. "Follow-up to VP at Chevron"
+  body TEXT NOT NULL,            -- the actual email text
+  source TEXT DEFAULT 'manual',  -- 'manual' or 'outlook'
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

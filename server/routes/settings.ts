@@ -5,6 +5,7 @@ import { homedir } from 'os';
 import { loadConfig, saveConfig, resolve } from '../lib/config.js';
 import { execFile } from 'child_process';
 import { askClaude, findClaudeBinary, getEnhancedEnv } from '../lib/claude.js';
+import { getStyleSamples, addStyleSample, deleteStyleSample } from '../lib/db.js';
 
 export const settingsRouter = Router();
 
@@ -99,6 +100,40 @@ settingsRouter.post('/test-dynamics', async (_req, res) => {
     }
   } catch (err) {
     res.json({ ok: false, error: (err as Error).message });
+  }
+});
+
+// --- Writing Style Samples ---
+
+settingsRouter.get('/style-samples', (_req, res) => {
+  try {
+    const samples = getStyleSamples();
+    res.json({ samples });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+settingsRouter.post('/style-samples', (req, res) => {
+  try {
+    const { label, body } = req.body;
+    if (!label || !body) {
+      res.status(400).json({ error: 'label and body are required' });
+      return;
+    }
+    addStyleSample(label, body);
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+settingsRouter.delete('/style-samples/:id', (req, res) => {
+  try {
+    deleteStyleSample(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
   }
 });
 

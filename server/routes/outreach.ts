@@ -9,7 +9,9 @@ import {
   getWinPatterns,
   saveDraft,
   getDrafts,
+  getDraftsGrouped,
   logActivity,
+  getStyleSamplesForPrompt,
 } from '../lib/db.js';
 
 export const outreachRouter = Router();
@@ -22,6 +24,13 @@ interface OutreachRequest {
   customContext?: string;
 }
 
+interface Citation {
+  claim: string;
+  source: string;
+  sourceType: 'case_study' | 'sharepoint' | 'web' | 'seed_data';
+  url?: string;
+}
+
 interface GeneratedEmail {
   subject: string;
   body: string;
@@ -29,6 +38,7 @@ interface GeneratedEmail {
   tone: string;
   personaType: string;
   templateBasis: string;
+  citations: Citation[];
 }
 
 outreachRouter.post('/generate', async (req, res) => {
@@ -76,6 +86,9 @@ outreachRouter.post('/generate', async (req, res) => {
       ? (matchingPersona.seniority === 'C-Suite' ? 'executive' : matchingPersona.seniority === 'VP' ? 'executive' : 'practitioner')
       : 'executive';
 
+    // Gather writing style samples
+    const styleSamples = getStyleSamplesForPrompt();
+
     const emails = await askClaudeJSON<GeneratedEmail[]>(`
 You are a world-class B2B sales copywriter at C3 AI, writing outreach emails to enterprise executives.
 
@@ -92,8 +105,8 @@ ${cached ? `## Research Intelligence\n${(cached.research_json as string).slice(0
 
 ${customContext ? `## Additional Context from BDR\n${customContext}` : ''}
 
-## Relevant Case Study
-${bestCaseStudy ? `${bestCaseStudy.customer_name} (${bestCaseStudy.industry}): ${bestCaseStudy.summary}\nValue: ${bestCaseStudy.value_delivered}` : 'No case study loaded for this industry.'}
+## Available Case Studies (CITE these when making claims)
+${caseStudies.length > 0 ? caseStudies.map(cs => `- ${cs.customer_name} (${cs.industry}, ${cs.is_public ? 'PUBLIC' : 'CONFIDENTIAL'}): ${cs.summary}. Value: ${cs.value_delivered}${cs.collateral_url ? `. URL: ${cs.collateral_url}` : ''}`).join('\n') : 'No case studies loaded for this industry.'}
 
 ## Win Patterns in ${industry}
 ${JSON.stringify(winPatterns.slice(0, 3), null, 2)}
@@ -103,18 +116,24 @@ ${JSON.stringify(templates.slice(0, 3).map(t => ({ subject: t.subject_line, tone
 
 ## Persona Notes
 ${matchingPersona ? JSON.stringify(matchingPersona) : `Target: ${title} (${personaType})`}
-
+${styleSamples.length > 0 ? `
+## Your Writing Style (match this voice closely)
+${styleSamples.map((s, i) => `Example ${i + 1}:\n${s}`).join('\n\n')}
+` : ''}
 ## Rules
 - Tone: ${tone}
 - Emails should be SHORT (under 150 words each)
 - First email: create curiosity with a specific signal or data point about THEIR company
-- Reference the case study naturally (not "we did X for Y" — make it feel organic)
+- Reference case studies naturally (not "we did X for Y" — make it feel organic)
+- CITATIONS: For EVERY statistical claim, ROI figure, or customer reference, you MUST include a citation. Cite from the case studies above.
+- Only cite PUBLIC case studies by name. For CONFIDENTIAL ones, say "a major ${industry} company"
 - Each subsequent email should add new value, not just "following up"
 - Last email should be a graceful close (not desperate)
 - Use {{sender_name}} as placeholder for the BDR's name
 - Subject lines should be under 50 characters, no clickbait
 - No buzzwords: no "leverage", "synergy", "paradigm", "best-in-class"
 - Write like a human, not a marketing automation tool
+${styleSamples.length > 0 ? '- Match the writing style examples above — same sentence length, formality, and personality' : ''}
 
 Return a JSON array of email objects, each with:
 - subject: string
@@ -123,6 +142,7 @@ Return a JSON array of email objects, each with:
 - tone: "${tone}"
 - personaType: "${personaType}"
 - templateBasis: which template style this is based on
+- citations: array of {claim: string, source: string, sourceType: "case_study" or "seed_data", url: string or null}
 `, { systemPrompt: 'You are an expert B2B sales copywriter. Return valid JSON arrays only.' });
 
     // Save drafts to DB
@@ -133,6 +153,7 @@ Return a JSON array of email objects, each with:
         body: email.body,
         sequence_position: email.sequencePosition,
         tone: email.tone,
+        citations_json: email.citations ? JSON.stringify(email.citations) : undefined,
       });
     }
 
@@ -154,10 +175,10 @@ Return a JSON array of email objects, each with:
   }
 });
 
-// Get saved drafts
+// Get saved drafts (with company info when no filter)
 outreachRouter.get('/drafts', (_req, res) => {
   try {
-    const drafts = getDrafts();
+    const drafts = getDraftsGrouped();
     res.json({ drafts });
   } catch (error) {
     const err = error as Error;
