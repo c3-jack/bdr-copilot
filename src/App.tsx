@@ -4,6 +4,7 @@ import Discover from './pages/Discover';
 import Outreach from './pages/Outreach';
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
+import Batch from './pages/Batch';
 import Home from './pages/Home';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/discover" element={<Discover />} />
             <Route path="/outreach" element={<Outreach />} />
+            <Route path="/batch" element={<Batch />} />
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />

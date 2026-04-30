@@ -4,6 +4,7 @@ const links = [
   { to: '/', label: 'Home' },
   { to: '/discover', label: 'Find Targets' },
   { to: '/outreach', label: 'Draft Outreach' },
+  { to: '/batch', label: 'Batch Outreach' },
   { to: '/pipeline', label: 'My Pipeline' },
   { to: '/settings', label: 'Settings' },
 ];

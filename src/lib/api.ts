@@ -343,6 +343,50 @@ export interface StyleSample {
   created_at: string;
 }
 
+// Batch outreach
+export interface BatchContact {
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  jobTitle: string;
+  jobFunction: string;
+  managementLevel: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  industry: string;
+  subIndustry: string;
+  revenue: string;
+  employeeCount: string;
+  city: string;
+  state: string;
+  country: string;
+  linkedinUrl: string;
+  companyUrl: string;
+  [key: string]: string;
+}
+
+export interface BatchResult {
+  contact: BatchContact;
+  email: { subject: string; body: string };
+  error?: string;
+}
+
+export function batchPreview(csv: string) {
+  return request<{ contacts: BatchContact[]; total: number; valid: number }>('/batch/preview', {
+    method: 'POST',
+    body: JSON.stringify({ csv }),
+  });
+}
+
+export function batchGenerate(contacts: BatchContact[], tone?: string, senderName?: string) {
+  return request<{ results: BatchResult[]; successful: number; failed: number }>('/batch/generate', {
+    method: 'POST',
+    body: JSON.stringify({ contacts, tone, senderName }),
+    timeoutMs: 600_000, // 10 min for batch
+  });
+}
+
 // Style samples API
 export function getStyleSamples() {
   return request<{ samples: StyleSample[] }>('/settings/style-samples');

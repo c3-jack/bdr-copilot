@@ -8,6 +8,7 @@ import { outreachRouter } from './routes/outreach.js';
 import { pipelineRouter } from './routes/pipeline.js';
 import { settingsRouter } from './routes/settings.js';
 import { homeRouter } from './routes/home.js';
+import { batchRouter } from './routes/batch.js';
 import { initDatabase, purgeStaleCache } from './lib/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT ?? 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // API routes
 app.use('/api/discover', discoverRouter);
@@ -24,6 +25,7 @@ app.use('/api/outreach', outreachRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/home', homeRouter);
+app.use('/api/batch', batchRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
