@@ -178,9 +178,7 @@ batchRouter.post('/generate', async (req, res) => {
             { systemPrompt: 'Be concise. 2-3 sentences only.' }
           ).then(r => r.text).catch(() => '');
 
-          const email = await askClaudeJSON<BatchEmail>(`
-Write a personalized cold outreach email to ${contact.fullName || contact.firstName + ' ' + contact.lastName}, ${contact.jobTitle} at ${contact.companyName}.
-
+          const contactContext = `
 ## Contact Details
 - Name: ${contact.fullName || contact.firstName}
 - Title: ${contact.jobTitle}
@@ -196,11 +194,17 @@ Write a personalized cold outreach email to ${contact.fullName || contact.firstN
 ${companyContext}
 
 ## Reference Case Studies (cite naturally if relevant)
-${publicStudies.length > 0 ? publicStudies.map(cs => `- ${cs.customer_name}: ${cs.value_delivered} (${cs.summary})`).join('\n') : 'No matching case studies.'}
-${styleSamples.length > 0 ? `
-## Writing Style (match this voice)
-${styleSamples.map((s, j) => `Example ${j + 1}:\n${s}`).join('\n\n')}
-` : ''}
+${publicStudies.length > 0 ? publicStudies.map(cs => `- ${cs.customer_name}: ${cs.value_delivered} (${cs.summary})`).join('\n') : 'No matching case studies.'}`;
+
+          const styleContext = styleSamples.length > 0
+            ? `\n## Writing Style (match this voice)\n${styleSamples.map((s, j) => `Example ${j + 1}:\n${s}`).join('\n\n')}\n`
+            : '';
+
+          // ── PASS 1: Generate draft ──
+          const draft = await askClaudeJSON<BatchEmail>(`
+Write a personalized cold outreach email to ${contact.fullName || contact.firstName + ' ' + contact.lastName}, ${contact.jobTitle} at ${contact.companyName}.
+${contactContext}
+${styleContext}
 ## Rules
 - Tone: ${tone}
 - Under 120 words
@@ -213,9 +217,34 @@ ${styleSamples.map((s, j) => `Example ${j + 1}:\n${s}`).join('\n\n')}
 Return JSON: {"subject": "string", "body": "string"}
 `, { systemPrompt: 'Expert B2B sales copywriter. Return valid JSON only.' });
 
-          // Save as draft
+          // ── PASS 2: Critic reviews and rewrites ──
+          const email = await askClaudeJSON<BatchEmail>(`
+You are a senior sales writing coach. Review this cold outreach email draft and rewrite it to be significantly better.
+
+## The Draft
+Subject: ${draft.subject}
+Body:
+${draft.body}
+
+## Who This Is For
+${contactContext}
+${styleContext}
+## Critique Checklist — fix ALL of these:
+1. PERSONALIZATION: Does it reference something specific about ${contact.companyName} or this person's role? Generic intros like "I noticed your company is a leader in..." are lazy. Find a real angle.
+2. OPENING LINE: Would you actually read past the first sentence? If it starts with "I'm reaching out because" or "My name is" — rewrite it. Start with THEM, not you.
+3. VOICE: Does it sound like a real person wrote it, or like an AI? Match the writing style examples if provided. Real BDRs are casual, direct, slightly cheeky.
+4. LENGTH: Must be under 120 words. Cut ruthlessly. Every sentence must earn its place.
+5. ASK: Is there a clear, low-friction ask? Not "I'd love to schedule a call" (too much commitment). Better: "Worth a 15-min look?" or a question that provokes a reply.
+6. SUBJECT LINE: Under 50 chars, no clickbait, makes them curious enough to open.
+7. CASE STUDIES: If a stat is referenced, does it come from the provided case studies? Remove any fabricated claims.
+8. BUZZWORDS: Remove "leverage", "synergy", "paradigm", "best-in-class", "innovative", "cutting-edge", "revolutionize", "transform". Use plain language.
+
+Rewrite the email applying your critique. Return JSON: {"subject": "string", "body": "string"}
+`, { systemPrompt: 'Senior sales writing coach. Critique then rewrite. Return valid JSON only — the improved email.' });
+
+          // Save final version as draft
           saveDraft({
-            prospect_id: 0, // batch contacts aren't in prospects table
+            prospect_id: 0,
             subject: email.subject,
             body: email.body.replace(/\{\{sender_name\}\}/g, senderName ?? '{{sender_name}}'),
             tone,
