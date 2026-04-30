@@ -213,6 +213,7 @@ ${styleContext}
 - No buzzwords, no "leverage/synergy/paradigm"
 - Use ${senderName ?? '{{sender_name}}'} as the sender
 - Write like a human, not a bot
+${styleSamples.length > 0 ? '- CRITICAL: This email must sound like the BDR wrote it. Study the writing style examples above — match their sentence structure, word choice, sign-off style, and personality exactly. If they write short punchy sentences, you do too. If they use em dashes, you do too.' : ''}
 
 Return JSON: {"subject": "string", "body": "string"}
 `, { systemPrompt: 'Expert B2B sales copywriter. Return valid JSON only.' });
@@ -232,7 +233,7 @@ ${styleContext}
 ## Critique Checklist — fix ALL of these:
 1. PERSONALIZATION: Does it reference something specific about ${contact.companyName} or this person's role? Generic intros like "I noticed your company is a leader in..." are lazy. Find a real angle.
 2. OPENING LINE: Would you actually read past the first sentence? If it starts with "I'm reaching out because" or "My name is" — rewrite it. Start with THEM, not you.
-3. VOICE: Does it sound like a real person wrote it, or like an AI? Match the writing style examples if provided. Real BDRs are casual, direct, slightly cheeky.
+3. VOICE: This email must read like the BDR wrote it themselves — not like AI. ${styleSamples.length > 0 ? 'Study the writing style examples carefully. Match their exact sentence length, punctuation habits, how they open and close emails, their level of formality, and their personality. If they use sentence fragments, you use sentence fragments. If they sign off with just their first name, you do too.' : 'Write like a real human — casual, direct, slightly cheeky.'}
 4. LENGTH: Must be under 120 words. Cut ruthlessly. Every sentence must earn its place.
 5. ASK: Is there a clear, low-friction ask? Not "I'd love to schedule a call" (too much commitment). Better: "Worth a 15-min look?" or a question that provokes a reply.
 6. SUBJECT LINE: Under 50 chars, no clickbait, makes them curious enough to open.
